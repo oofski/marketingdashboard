@@ -1,5 +1,7 @@
-import initSqlJs from 'sql.js';
+import initSqlJsModule from 'sql.js/dist/sql-wasm.js';
 import sqlWasmUrl from 'sql.js/dist/sql-wasm.wasm?url';
+
+const initSqlJs = initSqlJsModule.default || initSqlJsModule;
 
 let SQL = null;
 let db = null;
