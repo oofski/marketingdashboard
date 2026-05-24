@@ -1,7 +1,9 @@
-import initSqlJsModule from 'sql.js/dist/sql-wasm.js';
 import sqlWasmUrl from 'sql.js/dist/sql-wasm.wasm?url';
 
-const initSqlJs = initSqlJsModule.default || initSqlJsModule;
+async function loadSqlJs() {
+  const mod = await import('sql.js/dist/sql-wasm.js');
+  return mod.default || mod;
+}
 
 let SQL = null;
 let db = null;
@@ -164,6 +166,7 @@ function scheduleSave() {
 export async function initDatabase() {
   if (db) return db;
   if (!SQL) {
+    const initSqlJs = await loadSqlJs();
     SQL = await initSqlJs({ locateFile: () => sqlWasmUrl });
   }
   const existing = await loadPersisted();
@@ -465,7 +468,10 @@ export function exportDatabase() {
 }
 
 export async function importDatabase(bytes) {
-  if (!SQL) SQL = await initSqlJs({ locateFile: () => sqlWasmUrl });
+  if (!SQL) {
+    const initSqlJs = await loadSqlJs();
+    SQL = await initSqlJs({ locateFile: () => sqlWasmUrl });
+  }
   db = new SQL.Database(bytes);
   db.exec(SCHEMA);
   await writePersisted(db.export());
