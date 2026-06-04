@@ -6,16 +6,45 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isDev = !app.isPackaged;
 
-const DB_FILENAME = 'clinic-data.db';
+const DB_FILENAME = 'onboarding-data.db';
 
-function getDbPath() {
+function getConfigPath() {
+  return path.join(app.getPath('userData'), 'config.json');
+}
+
+function readConfig() {
+  try {
+    return JSON.parse(fs.readFileSync(getConfigPath(), 'utf8'));
+  } catch {
+    return {};
+  }
+}
+
+function writeConfig(cfg) {
+  fs.writeFileSync(getConfigPath(), JSON.stringify(cfg, null, 2));
+}
+
+function getDefaultDbPath() {
   return path.join(app.getPath('userData'), DB_FILENAME);
 }
 
-function getDocumentsDir() {
-  const dir = path.join(app.getPath('userData'), 'documents');
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  return dir;
+// The database location can be pointed at a shared network folder so every
+// staff computer reads/writes the same file.
+function getDbPath() {
+  const cfg = readConfig();
+  return cfg.dbPath || getDefaultDbPath();
+}
+
+function dbInfo() {
+  const cfg = readConfig();
+  const dbPath = getDbPath();
+  return {
+    dbPath,
+    folder: path.dirname(dbPath),
+    isCustom: !!cfg.dbPath,
+    default: getDefaultDbPath(),
+    exists: fs.existsSync(dbPath),
+  };
 }
 
 function createWindow() {
@@ -24,7 +53,7 @@ function createWindow() {
     height: 900,
     minWidth: 1024,
     minHeight: 700,
-    title: 'Dental Clinic Manager',
+    title: 'Onboarding Tracker',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -37,6 +66,7 @@ function createWindow() {
   } else {
     win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
   }
+  return win;
 }
 
 app.whenReady().then(() => {
@@ -49,22 +79,52 @@ app.whenReady().then(() => {
 
   ipcMain.handle('db:write', async (_evt, data) => {
     const p = getDbPath();
-    fs.writeFileSync(p, Buffer.from(data));
+    const dir = path.dirname(p);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    // Write to a temp file then rename, so a half-written file on a network
+    // share can never corrupt the live database.
+    const tmp = p + '.tmp';
+    fs.writeFileSync(tmp, Buffer.from(data));
+    fs.renameSync(tmp, p);
     return true;
   });
 
-  ipcMain.handle('doc:save', async (_evt, { filename, data }) => {
-    const dir = getDocumentsDir();
-    const p = path.join(dir, filename);
-    fs.writeFileSync(p, Buffer.from(data));
-    return p;
+  ipcMain.handle('db:stat', async () => {
+    const p = getDbPath();
+    if (!fs.existsSync(p)) return null;
+    const s = fs.statSync(p);
+    return { mtimeMs: s.mtimeMs, size: s.size };
   });
 
-  ipcMain.handle('doc:read', async (_evt, filename) => {
-    const dir = getDocumentsDir();
-    const p = path.join(dir, filename);
-    if (!fs.existsSync(p)) return null;
-    return new Uint8Array(fs.readFileSync(p));
+  ipcMain.handle('db:info', async () => dbInfo());
+
+  ipcMain.handle('db:chooseFolder', async () => {
+    const result = await dialog.showOpenDialog({
+      title: 'Choose shared data folder',
+      properties: ['openDirectory', 'createDirectory'],
+    });
+    if (result.canceled || !result.filePaths?.[0]) return { canceled: true, info: dbInfo() };
+    const folder = result.filePaths[0];
+    const target = path.join(folder, DB_FILENAME);
+    // If the chosen folder has no database yet, seed it with the current one so
+    // existing data carries over to the shared location.
+    if (!fs.existsSync(target)) {
+      const current = getDbPath();
+      if (fs.existsSync(current)) {
+        fs.copyFileSync(current, target);
+      }
+    }
+    const cfg = readConfig();
+    cfg.dbPath = target;
+    writeConfig(cfg);
+    return { canceled: false, info: dbInfo() };
+  });
+
+  ipcMain.handle('db:useDefault', async () => {
+    const cfg = readConfig();
+    delete cfg.dbPath;
+    writeConfig(cfg);
+    return dbInfo();
   });
 
   ipcMain.handle('doc:export', async (_evt, { filename, data }) => {
@@ -79,7 +139,6 @@ app.whenReady().then(() => {
 
   ipcMain.handle('app:info', () => ({
     userDataPath: app.getPath('userData'),
-    documentsPath: getDocumentsDir(),
     version: app.getVersion(),
   }));
 

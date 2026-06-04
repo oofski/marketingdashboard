@@ -20,6 +20,8 @@ export function DatabaseProvider({ children }) {
     return (
       <div style={{ padding: 40, fontFamily: 'sans-serif' }}>
         <h2>Database error</h2>
+        <p>The onboarding database could not be opened. If you use a shared network
+           folder, make sure the folder is reachable, then reopen the app.</p>
         <pre>{error.message}</pre>
       </div>
     );
@@ -29,7 +31,7 @@ export function DatabaseProvider({ children }) {
     return (
       <div className="boot-screen">
         <div className="boot-spinner" />
-        <div>Loading clinic database…</div>
+        <div>Loading onboarding database…</div>
       </div>
     );
   }

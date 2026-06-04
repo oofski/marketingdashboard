@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 
 const ThemeContext = createContext(null);
-const STORAGE_KEY = 'dental_clinic_theme';
+const STORAGE_KEY = 'onboarding_tracker_theme';
 
 export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(() => {

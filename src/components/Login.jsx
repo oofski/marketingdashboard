@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import { Settings as S } from '../services/db.js';
 
 export default function Login() {
   const { login } = useAuth();
-  const [username, setUsername] = useState('admin');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+
+  const company = S.get('company_name') || 'Neroli';
 
   async function submit(e) {
     e.preventDefault();
@@ -21,8 +24,8 @@ export default function Login() {
     <div className="login-shell">
       <div className="login-card">
         <div className="login-header">
-          <div className="login-brand">Dental Clinic Manager</div>
-          <div className="login-sub">Sign in to access patient records</div>
+          <div className="login-brand">{company} Onboarding</div>
+          <div className="login-sub">Sign in to track new hire onboarding</div>
         </div>
         <form onSubmit={submit}>
           {error && <div className="login-error">{error}</div>}
@@ -49,7 +52,8 @@ export default function Login() {
           </button>
         </form>
         <div className="login-hint">
-          Default credentials: <strong>admin</strong> / <strong>admin123</strong>
+          Admin first sign-in: <strong>admin</strong> / <strong>admin123</strong>
+          <br />Staff sign in with their own username — see Admin → Staff.
         </div>
       </div>
     </div>
