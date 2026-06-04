@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Booking Site — Local Preview</title>
+  <style>
+:root {
+  --bg: #f4f1ea;
+  --surface: #ffffff;
+  --surface-2: #faf8f3;
+  --ink: #1f2a30;
+  --muted: #687078;
+  --line: #e2ddd2;
+  --primary: #15788f;
+  --primary-dark: #0f5d70;
+  --primary-soft: #e3f0f3;
+  --accent: #c8893b;
+  --danger: #c0473b;
+  --ok: #2f8a5b;
+  --shadow: 0 10px 30px rgba(20, 40, 50, 0.08);
+  --radius: 14px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--primary-dark); }
+
+.wrap { max-width: 860px; margin: 0 auto; padding: 24px 18px 64px; }
+.wrap-wide { max-width: 1100px; }
+
+/* ---------- header / hero ---------- */
+.site-header {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  color: #fff;
+  padding: 28px 18px;
+  text-align: center;
+}
+.site-header h1 { margin: 0 0 6px; font-size: 1.8rem; letter-spacing: 0.2px; }
+.site-header p { margin: 0; opacity: 0.92; }
+.price-banner {
+  display: inline-flex; gap: 14px; flex-wrap: wrap; justify-content: center;
+  margin-top: 14px; font-size: 0.95rem;
+}
+.price-banner .chip {
+  background: rgba(255,255,255,0.16); border-radius: 999px; padding: 5px 14px;
+}
+
+/* ---------- cards / layout ---------- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 22px;
+  margin-top: 20px;
+}
+.card h2 { margin: 0 0 4px; font-size: 1.25rem; }
+.card .sub { color: var(--muted); margin: 0 0 18px; font-size: 0.95rem; }
+
+/* ---------- steps indicator ---------- */
+.steps { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.steps .step {
+  flex: 1; min-width: 90px; text-align: center; font-size: 0.78rem;
+  color: var(--muted); padding: 8px 6px; border-radius: 10px; border: 1px solid transparent;
+}
+.steps .step.active { color: var(--primary-dark); background: var(--primary-soft); font-weight: 600; }
+.steps .step.done { color: var(--ok); }
+.steps .step .n {
+  display: inline-flex; width: 22px; height: 22px; border-radius: 50%;
+  align-items: center; justify-content: center; background: var(--line);
+  color: var(--ink); margin-right: 6px; font-weight: 700; font-size: 0.75rem;
+}
+.steps .step.active .n { background: var(--primary); color: #fff; }
+.steps .step.done .n { background: var(--ok); color: #fff; }
+
+/* ---------- forms ---------- */
+label.field { display: block; margin: 14px 0 0; }
+label.field > span { display: block; font-weight: 600; font-size: 0.9rem; margin-bottom: 5px; }
+input[type=text], input[type=email], input[type=tel], input[type=number],
+input[type=date], input[type=password], textarea, select {
+  width: 100%; padding: 11px 12px; border: 1px solid var(--line);
+  border-radius: 10px; font-size: 1rem; background: var(--surface); color: var(--ink);
+  font-family: inherit;
+}
+input:focus, textarea:focus, select:focus {
+  outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft);
+}
+textarea { resize: vertical; min-height: 90px; }
+.row { display: flex; gap: 12px; flex-wrap: wrap; }
+.row > * { flex: 1; min-width: 140px; }
+.hint { color: var(--muted); font-size: 0.82rem; margin-top: 4px; }
+
+/* ---------- buttons ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 12px 20px; border-radius: 10px; border: 1px solid transparent;
+  font-size: 1rem; font-weight: 600; cursor: pointer; background: var(--primary); color: #fff;
+  transition: transform 0.05s ease, background 0.15s ease;
+}
+.btn:hover { background: var(--primary-dark); }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn.secondary { background: var(--surface); color: var(--ink); border-color: var(--line); }
+.btn.secondary:hover { background: var(--surface-2); }
+.btn.danger { background: var(--danger); }
+.btn.danger:hover { background: #a23a30; }
+.btn.sm { padding: 7px 12px; font-size: 0.85rem; }
+.btn.ghost { background: transparent; color: var(--primary-dark); border-color: transparent; }
+.btn-row { display: flex; justify-content: space-between; gap: 12px; margin-top: 22px; }
+
+/* ---------- nights selector ---------- */
+.nights-grid { display: flex; gap: 12px; flex-wrap: wrap; }
+.night-opt {
+  flex: 1; min-width: 130px; cursor: pointer; border: 2px solid var(--line);
+  border-radius: 12px; padding: 16px; text-align: center; background: var(--surface);
+  transition: border-color 0.15s, background 0.15s;
+}
+.night-opt:hover { border-color: var(--primary); }
+.night-opt.selected { border-color: var(--primary); background: var(--primary-soft); }
+.night-opt .big { font-size: 1.5rem; font-weight: 800; color: var(--primary-dark); }
+.night-opt .small { color: var(--muted); font-size: 0.85rem; }
+
+/* ---------- calendar ---------- */
+.cal { user-select: none; }
+.cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.cal-head .title { font-weight: 700; font-size: 1.05rem; }
+.cal-nav { display: flex; gap: 8px; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.cal-dow { text-align: center; font-size: 0.72rem; color: var(--muted); font-weight: 700; padding: 4px 0; }
+.cal-day {
+  aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center;
+  border-radius: 10px; font-size: 0.95rem; border: 1px solid transparent; position: relative;
+}
+.cal-day.empty { visibility: hidden; }
+.cal-day.available { background: var(--surface-2); border-color: var(--line); cursor: pointer; }
+.cal-day.available:hover { border-color: var(--primary); background: var(--primary-soft); }
+.cal-day.unavailable { color: #bfc4c8; text-decoration: line-through; background: transparent; }
+.cal-day.in-range { background: var(--primary-soft); }
+.cal-day.start { background: var(--primary); color: #fff; font-weight: 700; }
+.cal-day.checkout { box-shadow: inset 0 0 0 2px var(--accent); }
+.cal-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 14px; font-size: 0.8rem; color: var(--muted); }
+.cal-legend .key { display: inline-flex; align-items: center; gap: 6px; }
+.swatch { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+.selection-summary {
+  margin-top: 16px; padding: 12px 14px; border-radius: 10px;
+  background: var(--primary-soft); color: var(--primary-dark); font-weight: 600;
+}
+
+/* ---------- guests ---------- */
+.guest-card {
+  border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-top: 14px;
+  background: var(--surface-2);
+}
+.guest-card .guest-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.guest-card .guest-head h4 { margin: 0; font-size: 1rem; }
+.uploads { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+.upload-box { flex: 1; min-width: 200px; }
+.upload-box .file-name { font-size: 0.82rem; color: var(--ok); margin-top: 6px; word-break: break-all; }
+input[type=file] { font-size: 0.85rem; }
+
+/* ---------- price box ---------- */
+.price-box { border: 1px solid var(--line); border-radius: 12px; padding: 16px; background: var(--surface-2); }
+.price-line { display: flex; justify-content: space-between; padding: 6px 0; }
+.price-line.total { border-top: 2px solid var(--line); margin-top: 6px; padding-top: 12px; font-size: 1.2rem; font-weight: 800; }
+
+/* ---------- agreement / signature ---------- */
+.agreement-text {
+  white-space: pre-wrap; background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: 10px; padding: 16px; max-height: 320px; overflow-y: auto;
+  font-size: 0.9rem; line-height: 1.55;
+}
+.signature-wrap { margin-top: 16px; }
+.signature-canvas {
+  width: 100%; height: 200px; border: 2px dashed var(--line); border-radius: 10px;
+  background: #fff; touch-action: none; display: block;
+}
+.signature-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+.checkbox-row { display: flex; align-items: flex-start; gap: 10px; margin-top: 16px; }
+.checkbox-row input { margin-top: 4px; width: 18px; height: 18px; }
+
+/* ---------- confirmation ---------- */
+.confirm-icon {
+  width: 64px; height: 64px; border-radius: 50%; background: var(--ok); color: #fff;
+  display: flex; align-items: center; justify-content: center; font-size: 2rem; margin: 0 auto 12px;
+}
+
+/* ---------- misc ---------- */
+.notice { padding: 12px 14px; border-radius: 10px; margin-top: 12px; font-size: 0.92rem; }
+.notice.error { background: #fbeae8; color: #9b362c; border: 1px solid #f2c9c4; }
+.notice.info { background: var(--primary-soft); color: var(--primary-dark); }
+.hidden { display: none !important; }
+.center { text-align: center; }
+.muted { color: var(--muted); }
+.tag { display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 2px 9px; border-radius: 999px; }
+.tag.boat { background: #e7eef0; color: var(--primary-dark); }
+.spinner-overlay {
+  position: fixed; inset: 0; background: rgba(255,255,255,0.7); display: flex;
+  align-items: center; justify-content: center; z-index: 50;
+}
+.spinner {
+  width: 42px; height: 42px; border: 4px solid var(--line); border-top-color: var(--primary);
+  border-radius: 50%; animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- admin ---------- */
+.admin-top {
+  background: var(--ink); color: #fff; padding: 16px 18px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.admin-top h1 { font-size: 1.2rem; margin: 0; }
+.tabs { display: flex; gap: 8px; border-bottom: 1px solid var(--line); margin-bottom: 18px; flex-wrap: wrap; }
+.tab-btn {
+  background: none; border: none; padding: 12px 16px; font-size: 0.98rem; cursor: pointer;
+  color: var(--muted); border-bottom: 3px solid transparent; font-weight: 600;
+}
+.tab-btn.active { color: var(--primary-dark); border-bottom-color: var(--primary); }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); font-size: 0.9rem; }
+th { color: var(--muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; }
+tr.clickable { cursor: pointer; }
+tr.clickable:hover { background: var(--surface-2); }
+.id-img { max-width: 100%; border: 1px solid var(--line); border-radius: 8px; margin-top: 6px; }
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px; }
+.detail-grid .k { color: var(--muted); font-size: 0.8rem; }
+.detail-grid .v { font-weight: 600; }
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(20,30,35,0.5); display: flex;
+  align-items: flex-start; justify-content: center; padding: 30px 14px; overflow-y: auto; z-index: 60;
+}
+.modal {
+  background: var(--surface); border-radius: var(--radius); max-width: 720px; width: 100%;
+  padding: 24px; box-shadow: var(--shadow);
+}
+.modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+
+@media (max-width: 560px) {
+  .detail-grid { grid-template-columns: 1fr; }
+  .site-header h1 { font-size: 1.45rem; }
+}
+
+</style>
+</head>
+<body>
+<div style="background:#fff3cd;color:#664d03;padding:9px 14px;text-align:center;font-size:0.85rem;border-bottom:1px solid #ffe69c">
+  Local preview &mdash; this is a working demo of the booking site. Bookings are saved only in this browser.
+  <button onclick="window.__resetPreview && window.__resetPreview()" style="margin-left:8px;cursor:pointer;border:1px solid #997404;background:#fff;border-radius:6px;padding:2px 10px">Reset demo</button>
+</div>
+  <header class="site-header">
+    <h1 id="property-name">Book Your Stay</h1>
+    <p>Reserve your dates below — up to 3 nights / 4 days.</p>
+    <div class="price-banner" id="price-banner"></div>
+  </header>
+
+  <main class="wrap">
+    <div class="steps" id="steps"></div>
+
+    <!-- STEP 1: NIGHTS -->
+    <section class="card step-section" data-step="0">
+      <h2>How many nights?</h2>
+      <p class="sub">Choose the length of your stay. The maximum is 3 nights (4 days).</p>
+      <div class="nights-grid" id="nights-grid"></div>
+      <div class="btn-row">
+        <span></span>
+        <button class="btn" id="nights-next" disabled>Continue</button>
+      </div>
+    </section>
+
+    <!-- STEP 2: DATES -->
+    <section class="card step-section hidden" data-step="1">
+      <h2>Pick your check-in date</h2>
+      <p class="sub">Greyed-out days aren't available for the length of stay you chose.</p>
+      <div id="calendar"></div>
+      <div id="selection-summary" class="selection-summary hidden"></div>
+      <div class="btn-row">
+        <button class="btn secondary" data-back>Back</button>
+        <button class="btn" id="dates-next" disabled>Continue</button>
+      </div>
+    </section>
+
+    <!-- STEP 3: YOUR INFO -->
+    <section class="card step-section hidden" data-step="2">
+      <h2>Your details</h2>
+      <p class="sub">You're the person making the booking (guest #1).</p>
+      <div class="row">
+        <label class="field"><span>First name *</span><input type="text" id="b-first" autocomplete="given-name" /></label>
+        <label class="field"><span>Last name *</span><input type="text" id="b-last" autocomplete="family-name" /></label>
+      </div>
+      <div class="row">
+        <label class="field"><span>Email *</span><input type="email" id="b-email" autocomplete="email" /></label>
+        <label class="field"><span>Phone *</span><input type="tel" id="b-phone" autocomplete="tel" /></label>
+      </div>
+      <label class="field" style="max-width:160px"><span>Your age *</span><input type="number" id="b-age" min="0" max="120" /></label>
+
+      <div class="guest-card" style="margin-top:20px;background:var(--primary-soft)">
+        <label class="checkbox-row" style="margin-top:0">
+          <input type="checkbox" id="boating" />
+          <span>I plan to go <strong>boating</strong> and/or use <strong>gas-powered equipment</strong>.
+            <span class="hint" id="gas-hint"></span></span>
+        </label>
+      </div>
+
+      <div class="notice error hidden" id="details-error"></div>
+      <div class="btn-row">
+        <button class="btn secondary" data-back>Back</button>
+        <button class="btn" id="details-next">Continue</button>
+      </div>
+    </section>
+
+    <!-- STEP 4: GUESTS + IDS -->
+    <section class="card step-section hidden" data-step="3">
+      <h2>Guests & IDs</h2>
+      <p class="sub" id="guests-sub"></p>
+      <div id="guest-list"></div>
+      <button class="btn secondary sm" id="add-guest" style="margin-top:14px">+ Add a guest</button>
+      <div class="notice error hidden" id="guests-error"></div>
+      <div class="btn-row">
+        <button class="btn secondary" data-back>Back</button>
+        <button class="btn" id="guests-next">Continue</button>
+      </div>
+    </section>
+
+    <!-- STEP 5: AGREEMENT + SIGN -->
+    <section class="card step-section hidden" data-step="4">
+      <h2>Review, agree & sign</h2>
+      <p class="sub" id="review-line"></p>
+
+      <div class="price-box" id="price-box"></div>
+
+      <h3 style="margin:22px 0 8px">Agreement</h3>
+      <div class="agreement-text" id="agreement-text"></div>
+
+      <label class="checkbox-row">
+        <input type="checkbox" id="agree" />
+        <span>I have read and agree to the terms of this agreement, and I am authorized to book on behalf of my party.</span>
+      </label>
+
+      <label class="field"><span>Type your full legal name to sign *</span>
+        <input type="text" id="signed-name" /></label>
+
+      <div class="signature-wrap">
+        <span style="font-weight:600;font-size:0.9rem">Draw your signature *</span>
+        <canvas id="signature" class="signature-canvas"></canvas>
+        <div class="signature-actions">
+          <button type="button" class="btn ghost sm" id="clear-sig">Clear signature</button>
+          <span class="hint">Sign with your mouse or finger</span>
+        </div>
+      </div>
+
+      <div class="notice error hidden" id="agreement-error"></div>
+      <div class="btn-row">
+        <button class="btn secondary" data-back>Back</button>
+        <button class="btn" id="submit-booking">Confirm booking</button>
+      </div>
+    </section>
+
+    <!-- CONFIRMATION -->
+    <section class="card step-section hidden" id="confirmation">
+      <div class="confirm-icon">&#10003;</div>
+      <h2 class="center">You're booked!</h2>
+      <p class="center sub" id="confirm-summary"></p>
+      <div class="price-box" id="confirm-price"></div>
+      <div id="confirm-payment" style="margin-top:18px"></div>
+      <div id="confirm-contact" class="center muted" style="margin-top:18px;font-size:0.9rem"></div>
+    </section>
+
+    <p class="center muted" style="margin-top:26px;font-size:0.82rem">
+      <span class="muted">(The admin portal is part of the live/local-server version.)</span>
+    </p>
+  </main>
+
+  <div class="spinner-overlay hidden" id="spinner"><div class="spinner"></div></div>
+
+  <script>
+(function () {
+// Minimal vanilla canvas signature pad. No external dependencies.
+function createSignaturePad(canvas) {
+  const ctx = canvas.getContext('2d');
+  let drawing = false;
+  let dirty = false;
+  let last = null;
+
+  function resize() {
+    const ratio = Math.max(window.devicePixelRatio || 1, 1);
+    const rect = canvas.getBoundingClientRect();
+    // Preserve nothing on resize; just reset to a clean white canvas.
+    canvas.width = rect.width * ratio;
+    canvas.height = rect.height * ratio;
+    ctx.scale(ratio, ratio);
+    ctx.lineWidth = 2.2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#1f2a30';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, rect.width, rect.height);
+    dirty = false;
+  }
+
+  function pos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const point = e.touches ? e.touches[0] : e;
+    return { x: point.clientX - rect.left, y: point.clientY - rect.top };
+  }
+
+  function start(e) {
+    e.preventDefault();
+    drawing = true;
+    last = pos(e);
+  }
+  function move(e) {
+    if (!drawing) return;
+    e.preventDefault();
+    const p = pos(e);
+    ctx.beginPath();
+    ctx.moveTo(last.x, last.y);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    last = p;
+    dirty = true;
+  }
+  function end() { drawing = false; }
+
+  canvas.addEventListener('mousedown', start);
+  canvas.addEventListener('mousemove', move);
+  window.addEventListener('mouseup', end);
+  canvas.addEventListener('touchstart', start, { passive: false });
+  canvas.addEventListener('touchmove', move, { passive: false });
+  canvas.addEventListener('touchend', end);
+  window.addEventListener('resize', resize);
+
+  resize();
+
+  return {
+    clear: resize,
+    isEmpty: () => !dirty,
+    toDataURL: () => canvas.toDataURL('image/png'),
+  };
+}
+
+// Availability calendar. Shows which check-in dates have enough consecutive
+// free nights for the chosen stay length, and lets the user pick one.
+
+const DOW = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'];
+
+function ymd(d) { return d.toISOString().slice(0, 10); }
+function addDays(dateStr, n) {
+  const d = new Date(dateStr + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + n);
+  return ymd(d);
+}
+function fmtLong(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00Z');
+  return `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getUTCDay()]}, ${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`;
+}
+
+function createCalendar(container, { onSelect }) {
+  let blocked = new Set();
+  let today = ymd(new Date());
+  let nights = 1;
+  let selected = null;
+  let viewYear, viewMonth;
+
+  function initView() {
+    const t = new Date(today + 'T00:00:00Z');
+    viewYear = t.getUTCFullYear();
+    viewMonth = t.getUTCMonth();
+  }
+
+  function stayNights(checkIn, n) {
+    const out = [];
+    for (let i = 0; i < n; i++) out.push(addDays(checkIn, i));
+    return out;
+  }
+
+  function isAvailable(dateStr) {
+    if (dateStr < today) return false;
+    for (const d of stayNights(dateStr, nights)) {
+      if (blocked.has(d)) return false;
+    }
+    return true;
+  }
+
+  function render() {
+    if (viewYear == null) initView();
+    const first = new Date(Date.UTC(viewYear, viewMonth, 1));
+    const startDow = first.getUTCDay();
+    const daysInMonth = new Date(Date.UTC(viewYear, viewMonth + 1, 0)).getUTCDate();
+
+    const thisMonthStr = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}`;
+    const todayMonthStr = today.slice(0, 7);
+    const canGoBack = thisMonthStr > todayMonthStr;
+
+    const rangeSet = selected ? new Set(stayNights(selected, nights)) : new Set();
+    const checkoutDate = selected ? addDays(selected, nights) : null;
+
+    let cells = '';
+    for (let i = 0; i < startDow; i++) cells += '<div class="cal-day empty"></div>';
+    for (let day = 1; day <= daysInMonth; day++) {
+      const ds = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const avail = isAvailable(ds);
+      const classes = ['cal-day'];
+      if (avail) classes.push('available'); else classes.push('unavailable');
+      if (selected) {
+        if (ds === selected) classes.push('start');
+        else if (rangeSet.has(ds)) classes.push('in-range');
+        if (ds === checkoutDate) classes.push('checkout');
+      }
+      cells += `<div class="${classes.join(' ')}" data-date="${ds}" ${avail ? 'role="button" tabindex="0"' : ''}>${day}</div>`;
+    }
+
+    container.innerHTML = `
+      <div class="cal">
+        <div class="cal-head">
+          <div class="title">${MONTHS[viewMonth]} ${viewYear}</div>
+          <div class="cal-nav">
+            <button type="button" class="btn secondary sm" data-nav="prev" ${canGoBack ? '' : 'disabled'}>&larr;</button>
+            <button type="button" class="btn secondary sm" data-nav="next">&rarr;</button>
+          </div>
+        </div>
+        <div class="cal-grid">
+          ${DOW.map((d) => `<div class="cal-dow">${d}</div>`).join('')}
+          ${cells}
+        </div>
+        <div class="cal-legend">
+          <span class="key"><span class="swatch" style="background:var(--surface-2);border:1px solid var(--line)"></span> Available</span>
+          <span class="key"><span class="swatch" style="background:var(--primary)"></span> Your check-in</span>
+          <span class="key"><span class="swatch" style="background:var(--primary-soft)"></span> Nights booked</span>
+          <span class="key"><span class="swatch" style="box-shadow:inset 0 0 0 2px var(--accent)"></span> Check-out day</span>
+        </div>
+      </div>`;
+
+    container.querySelector('[data-nav="prev"]').onclick = () => {
+      if (!canGoBack) return;
+      viewMonth--; if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+      render();
+    };
+    container.querySelector('[data-nav="next"]').onclick = () => {
+      viewMonth++; if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+      render();
+    };
+    container.querySelectorAll('.cal-day.available').forEach((el) => {
+      const pick = () => { selected = el.dataset.date; render(); onSelect && onSelect(selected); };
+      el.onclick = pick;
+      el.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } };
+    });
+  }
+
+  return {
+    setBlocked(set, todayStr) { blocked = set; if (todayStr) { today = todayStr; initView(); } return this; },
+    setNights(n) {
+      nights = n;
+      // If the current selection no longer fits, clear it.
+      if (selected && !isAvailable(selected)) { selected = null; onSelect && onSelect(null); }
+      return this;
+    },
+    getSelected() { return selected; },
+    clearSelection() { selected = null; },
+    render,
+  };
+}
+
+
+// ---- Local preview mock backend (stands in for the real server) ----
+var PREVIEW_KEY = 'lakehouse_preview_v1';
+var PREVIEW_DEFAULTS = {"propertyName":"The Lake House","basePrice":300,"gasFee":150,"maxNights":3,"maxGuests":7,"paymentLink":"","contactEmail":"","contactPhone":"","agreementText":"SHORT-TERM STAY & EQUIPMENT USE AGREEMENT\n\nThis Agreement is entered into between the Property Owner (\"Owner\") and the\nperson submitting this booking (\"Guest\").\n\n1. BOOKING. The Guest is reserving the property for the dates and number of\n   nights selected at booking. Maximum stay is 3 nights / 4 days. Maximum\n   occupancy is 7 people total, including the person who booked. All guests\n   must be listed at the time of booking with their full name and age.\n\n2. PAYMENT. The base price for the stay is shown at checkout. If the Guest\n   selects boating and/or the use of any gas-powered equipment, an additional\n   gas charge applies. Final gas charges may be adjusted to actual usage.\n   Payment is due as instructed after booking.\n\n3. CONDUCT & CARE. The Guest agrees to treat the property and all equipment\n   with care, to follow all posted rules, and to leave the property in the\n   condition in which it was found. The Guest is responsible for the conduct\n   of every person in their party.\n\n4. BOATING & EQUIPMENT. Use of boats, watercraft, and any gas-powered or\n   motorized equipment is entirely at the Guest's own risk. The Guest affirms\n   that anyone operating such equipment is competent and legally permitted to\n   do so, and will use all required safety equipment (including life jackets).\n\n5. ASSUMPTION OF RISK & LIABILITY. The Guest understands that use of the\n   property, the water, and the equipment involves inherent risks, including\n   serious injury. To the fullest extent permitted by law, the Guest assumes\n   these risks and releases the Owner from liability for injury, loss, or\n   damage, except where caused by the Owner's gross negligence or willful\n   misconduct.\n\n6. DAMAGE. The Guest agrees to be responsible for any loss or damage to the\n   property or equipment caused during the stay, beyond normal wear and tear.\n\n7. IDENTIFICATION. The Guest agrees that identification provided (such as a\n   driver's license or voter ID) is true and accurate.\n\n8. CANCELLATION. Cancellations and changes are subject to the Owner's\n   approval.\n\nBy signing below, the Guest confirms they have read, understood, and agree to\nall of the terms above, and that they are at least 18 years of age and\nauthorized to make this booking on behalf of their entire party."};
+var memFallback = null;
+function previewLoad() {
+  try { return JSON.parse(localStorage.getItem(PREVIEW_KEY)) || {}; }
+  catch (e) { return memFallback || {}; }
+}
+function previewSave(s) {
+  try { localStorage.setItem(PREVIEW_KEY, JSON.stringify(s)); }
+  catch (e) { memFallback = s; }
+}
+function previewStore() {
+  var s = previewLoad();
+  s.bookings = s.bookings || [];
+  s.timeoff = s.timeoff || [];
+  s.settings = s.settings || {};
+  s.nextId = s.nextId || 1;
+  return s;
+}
+function pAddDays(d, n) { var x = new Date(d + 'T00:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); }
+function previewGetConfig() { var s = previewStore(); return Object.assign({}, PREVIEW_DEFAULTS, s.settings); }
+function previewGetBlocked() {
+  var s = previewStore(), set = {};
+  s.bookings.forEach(function (b) { for (var i = 0; i < b.nights; i++) set[pAddDays(b.checkIn, i)] = 1; });
+  s.timeoff.forEach(function (t) { var cur = t.startDate; for (var i = 0; i < 3660 && cur <= t.endDate; i++) { set[cur] = 1; cur = pAddDays(cur, 1); } });
+  return { today: new Date().toISOString().slice(0, 10), blockedNights: Object.keys(set).sort() };
+}
+function previewCreateBooking(body) {
+  var cfg = previewGetConfig(), s = previewStore(), blocked = {};
+  previewGetBlocked().blockedNights.forEach(function (d) { blocked[d] = 1; });
+  for (var i = 0; i < body.nights; i++) {
+    if (blocked[pAddDays(body.checkIn, i)]) return { __status: 409, error: 'Sorry, those dates were just taken. Please pick another date.' };
+  }
+  var total = cfg.basePrice + (body.boating ? cfg.gasFee : 0);
+  var id = s.nextId++;
+  s.bookings.push({
+    id: id, createdAt: new Date().toISOString(), checkIn: body.checkIn,
+    checkOut: pAddDays(body.checkIn, body.nights), nights: body.nights, boating: !!body.boating,
+    total: total, booker: body.booker, guests: body.guests || [], signedName: body.signedName
+  });
+  previewSave(s);
+  return { ok: true, bookingId: id, checkIn: body.checkIn, checkOut: pAddDays(body.checkIn, body.nights), nights: body.nights, totalPrice: total, paymentLink: cfg.paymentLink || '' };
+}
+window.__resetPreview = function () { try { localStorage.removeItem(PREVIEW_KEY); } catch (e) {} memFallback = null; location.reload(); };
+
+// fetch() shim — the inlined booking code calls these same routes.
+function fetch(url, opts) {
+  url = String(url); opts = opts || {};
+  function resp(data, status, okFlag) {
+    if (status == null) status = 200;
+    if (okFlag == null) okFlag = status < 400;
+    return Promise.resolve({ ok: okFlag, status: status, json: function () { return Promise.resolve(data); } });
+  }
+  if (url.indexOf('/api/config') >= 0) return resp(previewGetConfig());
+  if (url.indexOf('/api/blocked') >= 0) return resp(previewGetBlocked());
+  if (url.indexOf('/api/bookings') >= 0 && opts.method === 'POST') {
+    var r = previewCreateBooking(JSON.parse(opts.body));
+    if (r.__status) return resp({ error: r.error }, r.__status, false);
+    return resp(r, 200, true);
+  }
+  return resp({ error: 'Not available in this local preview.' }, 404, false);
+}
+
+
+const ALLOWED = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'application/pdf'];
+const MAX_BYTES = 5 * 1024 * 1024;
+const STEP_LABELS = ['Nights', 'Dates', 'Your info', 'Guests', 'Agreement'];
+
+const $ = (id) => document.getElementById(id);
+const money = (n) => `${Number(n).toFixed(2).replace(/\.00$/, '')}`;
+
+let config = null;
+let calendar = null;
+let sigPad = null;
+let currentStep = 0;
+
+const state = {
+  nights: null,
+  checkIn: null,
+  boating: false,
+  booker: { firstName: '', lastName: '', email: '', phone: '', age: '', dlData: null, voterData: null },
+  guests: [], // additional guests beyond the booker
+  agreedToTerms: false,
+  signedName: '',
+};
+
+// ----------------------------- boot -----------------------------
+init();
+
+async function init() {
+  showSpinner(true);
+  try {
+    config = await fetch('/api/config').then((r) => r.json());
+  } catch {
+    document.querySelector('main').innerHTML = '<div class="notice error">Could not load the booking site. Please refresh.</div>';
+    showSpinner(false);
+    return;
+  }
+
+  $('property-name').textContent = config.propertyName;
+  document.title = `Book Your Stay · ${config.propertyName}`;
+  $('price-banner').innerHTML =
+    `<span class="chip">From ${money(config.basePrice)} per stay</span>` +
+    `<span class="chip">+ ${money(config.gasFee)} gas (boating / gas equipment)</span>`;
+  $('gas-hint').textContent = `A ${money(config.gasFee)} gas charge will be added (final amount may be adjusted).`;
+  $('agreement-text').textContent = config.agreementText;
+
+  buildSteps();
+  buildNightsOptions();
+  buildCalendar();
+  wireDetails();
+  wireGuests();
+  wireAgreement();
+
+  document.querySelectorAll('[data-back]').forEach((b) => (b.onclick = () => goToStep(currentStep - 1)));
+  showSpinner(false);
+}
+
+// ----------------------------- steps -----------------------------
+function buildSteps() {
+  $('steps').innerHTML = STEP_LABELS.map((label, i) =>
+    `<div class="step" data-i="${i}"><span class="n">${i + 1}</span>${label}</div>`).join('');
+}
+
+function updateStepsIndicator() {
+  document.querySelectorAll('#steps .step').forEach((el) => {
+    const i = Number(el.dataset.i);
+    el.classList.toggle('active', i === currentStep);
+    el.classList.toggle('done', i < currentStep);
+  });
+}
+
+function goToStep(i) {
+  if (i < 0 || i > 4) return;
+  currentStep = i;
+  document.querySelectorAll('.step-section').forEach((s) => s.classList.add('hidden'));
+  $('confirmation').classList.add('hidden');
+  document.querySelector(`.step-section[data-step="${i}"]`).classList.remove('hidden');
+  updateStepsIndicator();
+
+  if (i === 1) { calendar.setNights(state.nights).render(); refreshDatesNext(); }
+  if (i === 3) renderGuests();
+  if (i === 4) enterAgreement();
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ----------------------------- step 1: nights -----------------------------
+function buildNightsOptions() {
+  const max = config.maxNights || 3;
+  const grid = $('nights-grid');
+  let html = '';
+  for (let n = 1; n <= max; n++) {
+    html += `<div class="night-opt" data-n="${n}">
+      <div class="big">${n}</div>
+      <div class="small">${n === 1 ? 'night' : 'nights'} · ${n + 1} days</div>
+    </div>`;
+  }
+  grid.innerHTML = html;
+  grid.querySelectorAll('.night-opt').forEach((el) => {
+    el.onclick = () => {
+      state.nights = Number(el.dataset.n);
+      grid.querySelectorAll('.night-opt').forEach((x) => x.classList.toggle('selected', x === el));
+      $('nights-next').disabled = false;
+    };
+  });
+  $('nights-next').onclick = () => goToStep(1);
+}
+
+// ----------------------------- step 2: dates -----------------------------
+function buildCalendar() {
+  calendar = createCalendar($('calendar'), { onSelect: onDatePicked });
+  $('dates-next').onclick = () => goToStep(2);
+  loadAvailability();
+}
+
+async function loadAvailability() {
+  try {
+    const data = await fetch('/api/blocked').then((r) => r.json());
+    calendar.setBlocked(new Set(data.blockedNights), data.today);
+  } catch { /* calendar still renders, just without blocks */ }
+}
+
+function onDatePicked(date) {
+  state.checkIn = date;
+  refreshDatesNext();
+}
+
+function refreshDatesNext() {
+  const summary = $('selection-summary');
+  if (state.checkIn) {
+    const out = addDays(state.checkIn, state.nights);
+    summary.classList.remove('hidden');
+    summary.innerHTML = `Check-in <strong>${fmtLong(state.checkIn)}</strong><br>` +
+      `Check-out <strong>${fmtLong(out)}</strong> · ${state.nights} ${state.nights === 1 ? 'night' : 'nights'}`;
+    $('dates-next').disabled = false;
+  } else {
+    summary.classList.add('hidden');
+    $('dates-next').disabled = true;
+  }
+}
+
+// ----------------------------- step 3: your info -----------------------------
+function wireDetails() {
+  const map = { 'b-first': 'firstName', 'b-last': 'lastName', 'b-email': 'email', 'b-phone': 'phone', 'b-age': 'age' };
+  for (const [id, key] of Object.entries(map)) {
+    $(id).value = state.booker[key];
+    $(id).oninput = (e) => { state.booker[key] = e.target.value; };
+  }
+  $('boating').onchange = (e) => { state.boating = e.target.checked; };
+  $('details-next').onclick = () => {
+    const errs = [];
+    if (!state.booker.firstName.trim()) errs.push('first name');
+    if (!state.booker.lastName.trim()) errs.push('last name');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(state.booker.email.trim())) errs.push('a valid email');
+    if (!state.booker.phone.trim()) errs.push('phone number');
+    const age = Number(state.booker.age);
+    if (!Number.isInteger(age) || age < 0 || age > 120) errs.push('a valid age');
+    const box = $('details-error');
+    if (errs.length) {
+      box.textContent = `Please enter ${errs.join(', ')}.`;
+      box.classList.remove('hidden');
+      return;
+    }
+    box.classList.add('hidden');
+    goToStep(3);
+  };
+}
+
+// ----------------------------- step 4: guests & IDs -----------------------------
+function wireGuests() {
+  $('add-guest').onclick = () => {
+    const total = 1 + state.guests.length;
+    if (total >= config.maxGuests) return;
+    state.guests.push({ firstName: '', lastName: '', age: '', dlData: null, voterData: null });
+    renderGuests();
+  };
+  $('guests-next').onclick = () => {
+    const errs = [];
+    state.guests.forEach((g, i) => {
+      if (!g.firstName.trim() || !g.lastName.trim()) errs.push(`Guest ${i + 2} needs a first and last name`);
+      const a = Number(g.age);
+      if (!Number.isInteger(a) || a < 0 || a > 120) errs.push(`Guest ${i + 2} needs a valid age`);
+    });
+    const box = $('guests-error');
+    if (errs.length) {
+      box.innerHTML = errs.join('.<br>') + '.';
+      box.classList.remove('hidden');
+      return;
+    }
+    box.classList.add('hidden');
+    goToStep(4);
+  };
+}
+
+function uploadBox(label, who, kind, current) {
+  const id = `up-${kind}-${who}`;
+  const status = current ? `<div class="file-name">&#10003; Uploaded</div>` : '';
+  return `<div class="upload-box">
+    <label class="field" style="margin-top:0"><span>${label}</span>
+      <input type="file" id="${id}" accept="image/*,application/pdf" /></label>
+    <div id="${id}-name">${status}</div>
+  </div>`;
+}
+
+function renderGuests() {
+  const remaining = config.maxGuests - (1 + state.guests.length);
+  $('guests-sub').innerHTML =
+    `Up to <strong>${config.maxGuests}</strong> guests total, including you. ` +
+    `Driver's license / voter ID uploads are optional. ${remaining > 0 ? `You can add ${remaining} more.` : 'You\'ve reached the maximum.'}`;
+
+  const list = $('guest-list');
+  let html = `<div class="guest-card">
+      <div class="guest-head"><h4>You — ${escapeHtml(state.booker.firstName)} ${escapeHtml(state.booker.lastName)} (guest&nbsp;1)</h4></div>
+      <div class="muted" style="font-size:0.85rem">Age ${escapeHtml(String(state.booker.age))}</div>
+      <div class="uploads">
+        ${uploadBox("Driver's license (optional)", 'booker', 'dl', state.booker.dlData)}
+        ${uploadBox('Voter ID (optional)', 'booker', 'voter', state.booker.voterData)}
+      </div>
+    </div>`;
+
+  state.guests.forEach((g, i) => {
+    html += `<div class="guest-card">
+      <div class="guest-head"><h4>Guest ${i + 2}</h4>
+        <button type="button" class="btn ghost sm" data-remove="${i}" style="color:var(--danger)">Remove</button></div>
+      <div class="row">
+        <label class="field"><span>First name *</span><input type="text" data-g="${i}" data-k="firstName" value="${escapeHtml(g.firstName)}" /></label>
+        <label class="field"><span>Last name *</span><input type="text" data-g="${i}" data-k="lastName" value="${escapeHtml(g.lastName)}" /></label>
+        <label class="field" style="max-width:110px"><span>Age *</span><input type="number" min="0" max="120" data-g="${i}" data-k="age" value="${escapeHtml(String(g.age))}" /></label>
+      </div>
+      <div class="uploads">
+        ${uploadBox("Driver's license (optional)", `g${i}`, 'dl', g.dlData)}
+        ${uploadBox('Voter ID (optional)', `g${i}`, 'voter', g.voterData)}
+      </div>
+    </div>`;
+  });
+  list.innerHTML = html;
+
+  $('add-guest').disabled = remaining <= 0;
+
+  list.querySelectorAll('input[type=text], input[type=number]').forEach((inp) => {
+    inp.oninput = (e) => {
+      const i = Number(e.target.dataset.g);
+      state.guests[i][e.target.dataset.k] = e.target.value;
+    };
+  });
+  list.querySelectorAll('[data-remove]').forEach((btn) => {
+    btn.onclick = () => { state.guests.splice(Number(btn.dataset.remove), 1); renderGuests(); };
+  });
+
+  // wire file inputs
+  bindUpload('up-dl-booker', (d) => (state.booker.dlData = d));
+  bindUpload('up-voter-booker', (d) => (state.booker.voterData = d));
+  state.guests.forEach((g, i) => {
+    bindUpload(`up-dl-g${i}`, (d) => (state.guests[i].dlData = d));
+    bindUpload(`up-voter-g${i}`, (d) => (state.guests[i].voterData = d));
+  });
+}
+
+function bindUpload(id, setter) {
+  const input = $(id);
+  if (!input) return;
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    const nameEl = $(`${id}-name`);
+    if (!file) { setter(null); nameEl.innerHTML = ''; return; }
+    if (!ALLOWED.includes(file.type)) {
+      nameEl.innerHTML = '<div class="file-name" style="color:var(--danger)">Unsupported file type</div>';
+      input.value = ''; setter(null); return;
+    }
+    if (file.size > MAX_BYTES) {
+      nameEl.innerHTML = '<div class="file-name" style="color:var(--danger)">File too large (max 5MB)</div>';
+      input.value = ''; setter(null); return;
+    }
+    const dataUrl = await fileToDataUrl(file);
+    setter(dataUrl);
+    nameEl.innerHTML = `<div class="file-name">&#10003; ${escapeHtml(file.name)}</div>`;
+  };
+}
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// ----------------------------- step 5: agreement -----------------------------
+function wireAgreement() {
+  $('clear-sig').onclick = () => sigPad && sigPad.clear();
+  $('agree').onchange = (e) => { state.agreedToTerms = e.target.checked; };
+  $('signed-name').oninput = (e) => { state.signedName = e.target.value; };
+  $('submit-booking').onclick = submitBooking;
+}
+
+function priceBreakdownHtml() {
+  const gas = state.boating ? config.gasFee : 0;
+  const total = config.basePrice + gas;
+  return `
+    <div class="price-line"><span>Stay (${state.nights} ${state.nights === 1 ? 'night' : 'nights'})</span><span>${money(config.basePrice)}</span></div>
+    ${state.boating ? `<div class="price-line"><span>Gas (boating / equipment)</span><span>${money(gas)}</span></div>` : ''}
+    <div class="price-line total"><span>Total</span><span>${money(total)}</span></div>
+    ${state.boating ? '<div class="hint">Final gas amount may be adjusted to actual usage.</div>' : ''}`;
+}
+
+function enterAgreement() {
+  const total = 1 + state.guests.length;
+  $('review-line').innerHTML =
+    `${state.nights} ${state.nights === 1 ? 'night' : 'nights'} · ` +
+    `${fmtLong(state.checkIn)} &rarr; ${fmtLong(addDays(state.checkIn, state.nights))} · ` +
+    `${total} ${total === 1 ? 'guest' : 'guests'}`;
+  $('price-box').innerHTML = priceBreakdownHtml();
+  // reflect current state into controls
+  $('agree').checked = state.agreedToTerms;
+  $('signed-name').value = state.signedName;
+  if (!sigPad) sigPad = createSignaturePad($('signature'));
+  else sigPad.clear();
+}
+
+async function submitBooking() {
+  const errs = [];
+  if (!state.agreedToTerms) errs.push('agree to the terms');
+  if (!state.signedName.trim()) errs.push('type your full name');
+  if (!sigPad || sigPad.isEmpty()) errs.push('draw your signature');
+  const box = $('agreement-error');
+  if (errs.length) {
+    box.textContent = `Please ${errs.join(', ')}.`;
+    box.classList.remove('hidden');
+    return;
+  }
+  box.classList.add('hidden');
+
+  const payload = {
+    checkIn: state.checkIn,
+    nights: state.nights,
+    boating: state.boating,
+    booker: {
+      firstName: state.booker.firstName.trim(),
+      lastName: state.booker.lastName.trim(),
+      email: state.booker.email.trim(),
+      phone: state.booker.phone.trim(),
+      age: Number(state.booker.age),
+      dlData: state.booker.dlData,
+      voterData: state.booker.voterData,
+    },
+    guests: state.guests.map((g) => ({
+      firstName: g.firstName.trim(),
+      lastName: g.lastName.trim(),
+      age: Number(g.age),
+      dlData: g.dlData,
+      voterData: g.voterData,
+    })),
+    agreedToTerms: true,
+    signedName: state.signedName.trim(),
+    signatureData: sigPad.toDataURL(),
+  };
+
+  showSpinner(true);
+  try {
+    const res = await fetch('/api/bookings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      box.textContent = data.error || 'Something went wrong. Please try again.';
+      box.classList.remove('hidden');
+      showSpinner(false);
+      return;
+    }
+    showConfirmation(data);
+  } catch {
+    box.textContent = 'Network error. Please try again.';
+    box.classList.remove('hidden');
+  }
+  showSpinner(false);
+}
+
+function showConfirmation(data) {
+  document.querySelectorAll('.step-section').forEach((s) => s.classList.add('hidden'));
+  document.querySelectorAll('#steps .step').forEach((el) => el.classList.add('done'));
+  const c = $('confirmation');
+  c.classList.remove('hidden');
+
+  $('confirm-summary').innerHTML =
+    `${config.propertyName} · Booking reference <strong>#${data.bookingId}</strong><br>` +
+    `${fmtLong(data.checkIn)} &rarr; ${fmtLong(data.checkOut)} · ${data.nights} ${data.nights === 1 ? 'night' : 'nights'}`;
+  $('confirm-price').innerHTML = priceBreakdownHtml();
+
+  const pay = $('confirm-payment');
+  if (data.paymentLink) {
+    pay.innerHTML = `<div class="center"><a class="btn" href="${escapeAttr(data.paymentLink)}" target="_blank" rel="noopener">Pay now (${money(data.totalPrice)})</a>
+      <div class="hint" style="margin-top:8px">You'll be taken to a secure payment page.</div></div>`;
+  } else {
+    pay.innerHTML = `<div class="notice info center">Your booking is recorded. We'll contact you with payment instructions for the ${money(data.totalPrice)} total.</div>`;
+  }
+
+  const bits = [];
+  if (config.contactEmail) bits.push(`Email: <a href="mailto:${escapeAttr(config.contactEmail)}">${escapeHtml(config.contactEmail)}</a>`);
+  if (config.contactPhone) bits.push(`Phone: <a href="tel:${escapeAttr(config.contactPhone)}">${escapeHtml(config.contactPhone)}</a>`);
+  $('confirm-contact').innerHTML = bits.length ? `Questions? ${bits.join(' &nbsp;·&nbsp; ')}` : '';
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ----------------------------- utils -----------------------------
+function showSpinner(on) { $('spinner').classList.toggle('hidden', !on); }
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function escapeAttr(s) { return escapeHtml(s); }
+
+})();
+</script>
+</body>
+</html>
