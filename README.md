@@ -1,152 +1,167 @@
-# Dental Clinic Manager
+# Lake House Booking Site
 
-Desktop application for dental clinics: patient intake, multi-language consent forms with digital signatures, an interactive 32-tooth chart, clinical notes, and automated PDF treatment report generation.
+A complete, live booking website **and** an owner/admin portal in one small app.
+Guests can reserve 1–3 nights, add their party, upload IDs, read and sign the
+rental agreement, and see the price. You manage everything from a private admin
+page.
 
-Built with Electron + React + sql.js. Runs entirely offline with a local SQLite database persisted to the user's data directory.
+## What guests can do (the public site, `/`)
 
-## Features
+1. **Pick the number of nights** — 1, 2, or 3 (max 3 nights / 4 days).
+2. **See real availability on a calendar** — days that can't fit the chosen stay
+   are greyed out. Dates already booked (or blocked by you) disappear
+   automatically.
+3. **Enter their details** and add up to **7 guests total (including themselves)**,
+   each with first name, last name, and age.
+4. **Optionally upload a driver's license and/or voter ID** for each guest
+   (photos or PDF).
+5. **Choose the boating / gas-equipment option** — adds the gas fee.
+6. **Read and sign the agreement** right on the page (draw a signature).
+7. **Confirm** — they get a booking reference and a button to your **payment link**.
 
-### Patient Management
-- Full patient registration with demographics, contact, insurance, medical history, allergies, medications
-- Search by name, phone, email, or patient ID
-- Per-patient dashboard with visit history and document archive
-- Visual allergy / medical-condition alerts at every relevant screen
+## Pricing
 
-### Consent Forms
-- Multi-language consent (English, Spanish, French) — extensible via `src/services/translations.js`
-- Standard clinic, HIPAA, risk-acknowledgment, and financial-responsibility sections
-- In-app signature capture with clear/redraw
-- Auto-archived to patient record with timestamp
-- Generated as professional PDFs with clinic branding header/footer
+- Base price: **$300 for the whole stay** (1–3 nights).
+- **+ $150 gas fee** if the guest selects boating / gas-powered equipment
+  (final gas amount can be adjusted; you can change the fee anytime).
+- **All prices, the payment link, contact info, and the agreement text are
+  editable in the admin → Settings.** Nothing is hard-coded.
 
-### Interactive Tooth Chart
-- Full 32-tooth dental arch (Universal numbering)
-- Click any tooth to annotate condition, surfaces (O/B/L/M/D/I), and note
-- 10 color-coded conditions: cavity, filled, crown, missing, implant, root canal, sensitive, extraction, watch, healthy
-- Visual legend
-- Findings persist per visit
+## What you can do (the admin portal, `/admin`)
 
-### Clinical Notes
-- Categorized notes (exam, diagnosis, treatment plan, follow-up, general)
-- Quick-template buttons for common findings per category
-- Free-text input
-- Optionally link any note to a selected tooth
+- Log in with your admin password.
+- **See every booking** with full details: dates, nights, party list with ages,
+  uploaded IDs, the signed agreement + signature, and the total.
+- **Reach out** to a guest with one click (email or call links, pre-filled).
+- **Delete a booking** (this frees the dates again).
+- **Block dates** ("house time-off") for maintenance or personal use — blocked
+  dates stop being bookable.
+- **Edit settings**: property name, base price, gas fee, max nights/guests,
+  payment link, contact email/phone, and the full agreement text.
 
-### Treatment Reports
-- One-click PDF generation pulling all patient data, alerts, tooth chart, findings summary, and grouped notes
-- Visual tooth chart rendered into the PDF
-- Next-appointment scheduling
-- Doctor signature line
-- Archived to patient file, viewable and re-exportable
+---
 
-### Provider Dashboard
-- Today's visit queue with allergy badges
-- Patient + visit + document counters
-- Recent documents feed
+## Run it on your computer (optional, for testing)
 
-### Admin
-- User management (admin / doctor / staff roles)
-- Password reset
-- Clinic settings (name, address, phone, license — appears in all PDFs)
-- Full database backup / restore
-- Audit log of all auditable actions (login, patient changes, signed forms, generated reports)
-
-## Tech Stack
-
-| Layer | Library |
-|---|---|
-| Desktop shell | Electron 33 |
-| UI | React 18 + React Router 6 |
-| Build | Vite 5 |
-| Database | sql.js (SQLite compiled to WASM) |
-| PDF | jsPDF |
-| Signatures | signature_pad |
-| Icons | lucide-react |
-
-## Running
+You need [Node.js](https://nodejs.org) 18 or newer.
 
 ```bash
 npm install
-
-# Web dev (no Electron, useful for quick UI work)
-npm run dev
-
-# Full Electron development with hot-reload
-npm run start
-
-# Build static assets
-npm run build
-
-# Run a built version inside Electron
-npm run electron
+cp .env.example .env      # then edit .env and set ADMIN_PASSWORD + SESSION_SECRET
+npm start
 ```
 
-Default credentials on first launch: `admin` / `admin123`.
+Open **http://localhost:3000** for the booking site and
+**http://localhost:3000/admin** for the admin portal.
 
-## Data Storage
+In local mode the data is stored in a file at `./data/booking.db` — no setup
+required.
 
-- **Electron mode**: SQLite file at `<userData>/clinic-data.db`. PDFs at `<userData>/documents/`.
-- **Web mode**: Database and documents persisted to `localStorage`. Use Settings → Backup to export.
+---
 
-## Project Layout
+## Going Live (free) — step by step
+
+The site needs to be hosted so anyone with the link can use it. The plan below
+is **100% free** and keeps your bookings safe permanently:
+
+- **Render** (free) runs the website.
+- **Turso** (free) stores your bookings so they survive restarts. (Render's free
+  tier wipes its own disk on restart, so the database lives in Turso instead.)
+
+### Step 1 — Create the free database (Turso)
+
+1. Go to **https://turso.tech** and sign up (free).
+2. Create a new database (any name, e.g. `lakehouse`).
+3. Open the database and copy two things:
+   - the **Database URL** (looks like `libsql://lakehouse-yourname.turso.io`)
+   - a **Database Token** (create one if needed — it's a long string)
+
+   *(If you prefer the command line, after installing the Turso CLI:
+   `turso db create lakehouse`, then `turso db show lakehouse --url` for the URL
+   and `turso db tokens create lakehouse` for the token.)*
+
+### Step 2 — Put the code on GitHub
+
+This repository is already on GitHub. Make sure your latest changes are pushed
+(they are, if you're reading this from the repo).
+
+### Step 3 — Deploy on Render
+
+1. Go to **https://render.com** and sign up (free) — choose "Sign in with
+   GitHub" so it can see this repo.
+2. Click **New + → Blueprint**, pick this repository, and confirm. Render reads
+   the included `render.yaml` automatically.
+3. When prompted, fill in the environment values:
+   - **ADMIN_PASSWORD** → choose a strong password (this is how you log into
+     `/admin`).
+   - **DATABASE_URL** → the Turso Database URL from Step 1.
+   - **DATABASE_AUTH_TOKEN** → the Turso token from Step 1.
+   - **SESSION_SECRET** → leave it; Render fills it with a random value.
+4. Click **Apply / Create**. Render installs and starts the site (first build
+   takes a couple of minutes).
+5. When it's live, Render gives you a public URL like
+   `https://lakehouse-booking.onrender.com`. **That's your link to share.**
+   The admin portal is that same URL with `/admin` on the end.
+
+> *(No `render.yaml`? You can instead choose **New + → Web Service**, pick the
+> repo, set Build Command `npm install`, Start Command `npm start`, and add the
+> same four environment variables by hand.)*
+
+### Step 4 — Set up your booking page
+
+1. Open `your-link/admin`, log in with your `ADMIN_PASSWORD`.
+2. Go to **Settings** and set your property name, confirm the $300 / $150
+   prices, add your **payment link** (you can paste this later once you have it),
+   and your contact email/phone. Edit the agreement text if you'd like.
+3. Share your public link. You're live!
+
+### Notes
+
+- **Free-tier sleep:** Render's free site "sleeps" after ~15 minutes of no
+  visitors, so the *first* visit after a quiet period can take ~30–60 seconds to
+  load. Visits after that are instant. (Upgrading Render's plan removes the
+  sleep, if you ever want that.)
+- **Skipping Turso:** If you deploy without the two `DATABASE_*` values, the site
+  still works, but bookings are stored on Render's temporary disk and will be
+  **lost when the free service restarts**. Use Turso for anything real.
+- **Custom domain:** Render lets you attach your own domain (e.g.
+  `book.yourhouse.com`) for free in the service settings.
+
+---
+
+## How it's built
+
+| Part | Tech |
+|---|---|
+| Server / API | Node.js + Express |
+| Database | libSQL / SQLite (local file in dev, free Turso cloud in production) |
+| Front end | Plain HTML/CSS/JavaScript (no build step) |
+| Signature | Lightweight canvas pad (no dependencies) |
+| Admin auth | Password + signed session token |
 
 ```
-electron/
-  main.js          Electron main process & IPC handlers
-  preload.cjs      contextBridge exposing readDb / writeDb / saveDoc / readDoc
+server.js              Express server: serves pages + all API routes
 src/
-  main.jsx         React entry, providers, router
-  App.jsx          Route table
-  services/
-    db.js          sql.js wrapper + domain helpers (Patients, Visits, ...)
-    pdf.js         Consent + treatment-report PDF generators
-    translations.js  Consent form copy per language
-  contexts/
-    DatabaseContext.jsx  Loads sql.js, gates the app on init
-    AuthContext.jsx      Login / logout / session storage
-    ThemeContext.jsx     Light / dark mode
-  components/
-    Login.jsx
-    Layout.jsx
-    Dashboard.jsx
-    PatientList.jsx
-    PatientFormModal.jsx
-    PatientDetail.jsx
-    VisitScreen.jsx
-    ToothChart.jsx       The clickable 32-tooth chart
-    ClinicalNotesPanel.jsx
-    ConsentFormModal.jsx
-    SignaturePad.jsx
-    ArchiveView.jsx
-    Settings.jsx
-    UserManagement.jsx
-styles/
-  global.css       Theme tokens, all component styles
+  db.js                Database connection, schema, settings
+  availability.js      Date math + which nights are taken
+  auth.js              Admin password check + session tokens
+public/
+  index.html           The booking site
+  admin.html           The admin portal
+  css/styles.css       All styling
+  js/booking.js        Booking flow logic
+  js/calendar.js       Availability calendar
+  js/signature.js      Signature pad
+  js/admin.js          Admin portal logic
+render.yaml            One-click Render deploy config
+.env.example           Template for your settings/secrets
 ```
 
-## Adding Languages
+## Security notes
 
-1. Open `src/services/translations.js`
-2. Add a new entry to `LANGUAGES`
-3. Add a matching entry to `CONSENT_TEMPLATES` with `title`, `intro`, `sections`, signature labels
-4. Language appears automatically in the consent form picker
-
-## Workflow
-
-1. **Intake** — Register a new patient or open an existing one
-2. **Consent** — From patient detail, open Consent Form, select language, patient signs in-app, archived automatically
-3. **Visit** — Start visit; opens the exam screen with tooth chart + notes side-by-side
-4. **Examine** — Click each tooth, set condition / surfaces / note. Add categorized clinical notes (optionally linked to a tooth).
-5. **Report** — Click "Generate Report"; PDF is built from all visit data and stored on the patient
-6. **Complete** — Mark visit completed; next-appointment date saved
-
-## Security Notes
-
-- All data is stored locally — no cloud transmission
-- Password hashing uses SHA-256 with a fixed salt (suitable for a starting point; for production, swap to a per-user salt and a slow KDF like argon2 or bcrypt)
-- HIPAA-friendly design: local storage only, audit log, role-based access
-- For full HIPAA compliance: enable disk-level encryption on the host machine, configure automatic screen locks, and back up to encrypted media only
-
-## License
-
-MIT
+- Set a **strong `ADMIN_PASSWORD`** and a long random `SESSION_SECRET` before
+  going live (Render generates the latter for you).
+- Guest IDs and signatures are stored in your database and only shown in the
+  password-protected admin portal.
+- The agreement template is a general starting point — **have it reviewed by a
+  lawyer** before relying on it.

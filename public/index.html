@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Book Your Stay</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <h1 id="property-name">Book Your Stay</h1>
+    <p>Reserve your dates below — up to 3 nights / 4 days.</p>
+    <div class="price-banner" id="price-banner"></div>
+  </header>
+
+  <main class="wrap">
+    <div class="steps" id="steps"></div>
+
+    <!-- STEP 1: NIGHTS -->
+    <section class="card step-section" data-step="0">
+      <h2>How many nights?</h2>
+      <p class="sub">Choose the length of your stay. The maximum is 3 nights (4 days).</p>
+      <div class="nights-grid" id="nights-grid"></div>
+      <div class="btn-row">
+        <span></span>
+        <button class="btn" id="nights-next" disabled>Continue</button>
+      </div>
+    </section>
+
+    <!-- STEP 2: DATES -->
+    <section class="card step-section hidden" data-step="1">
+      <h2>Pick your check-in date</h2>
+      <p class="sub">Greyed-out days aren't available for the length of stay you chose.</p>
+      <div id="calendar"></div>
+      <div id="selection-summary" class="selection-summary hidden"></div>
+      <div class="btn-row">
+        <button class="btn secondary" data-back>Back</button>
+        <button class="btn" id="dates-next" disabled>Continue</button>
+      </div>
+    </section>
+
+    <!-- STEP 3: YOUR INFO -->
+    <section class="card step-section hidden" data-step="2">
+      <h2>Your details</h2>
+      <p class="sub">You're the person making the booking (guest #1).</p>
+      <div class="row">
+        <label class="field"><span>First name *</span><input type="text" id="b-first" autocomplete="given-name" /></label>
+        <label class="field"><span>Last name *</span><input type="text" id="b-last" autocomplete="family-name" /></label>
+      </div>
+      <div class="row">
+        <label class="field"><span>Email *</span><input type="email" id="b-email" autocomplete="email" /></label>
+        <label class="field"><span>Phone *</span><input type="tel" id="b-phone" autocomplete="tel" /></label>
+      </div>
+      <label class="field" style="max-width:160px"><span>Your age *</span><input type="number" id="b-age" min="0" max="120" /></label>
+
+      <div class="guest-card" style="margin-top:20px;background:var(--primary-soft)">
+        <label class="checkbox-row" style="margin-top:0">
+          <input type="checkbox" id="boating" />
+          <span>I plan to go <strong>boating</strong> and/or use <strong>gas-powered equipment</strong>.
+            <span class="hint" id="gas-hint"></span></span>
+        </label>
+      </div>
+
+      <div class="notice error hidden" id="details-error"></div>
+      <div class="btn-row">
+        <button class="btn secondary" data-back>Back</button>
+        <button class="btn" id="details-next">Continue</button>
+      </div>
+    </section>
+
+    <!-- STEP 4: GUESTS + IDS -->
+    <section class="card step-section hidden" data-step="3">
+      <h2>Guests & IDs</h2>
+      <p class="sub" id="guests-sub"></p>
+      <div id="guest-list"></div>
+      <button class="btn secondary sm" id="add-guest" style="margin-top:14px">+ Add a guest</button>
+      <div class="notice error hidden" id="guests-error"></div>
+      <div class="btn-row">
+        <button class="btn secondary" data-back>Back</button>
+        <button class="btn" id="guests-next">Continue</button>
+      </div>
+    </section>
+
+    <!-- STEP 5: AGREEMENT + SIGN -->
+    <section class="card step-section hidden" data-step="4">
+      <h2>Review, agree & sign</h2>
+      <p class="sub" id="review-line"></p>
+
+      <div class="price-box" id="price-box"></div>
+
+      <h3 style="margin:22px 0 8px">Agreement</h3>
+      <div class="agreement-text" id="agreement-text"></div>
+
+      <label class="checkbox-row">
+        <input type="checkbox" id="agree" />
+        <span>I have read and agree to the terms of this agreement, and I am authorized to book on behalf of my party.</span>
+      </label>
+
+      <label class="field"><span>Type your full legal name to sign *</span>
+        <input type="text" id="signed-name" /></label>
+
+      <div class="signature-wrap">
+        <span style="font-weight:600;font-size:0.9rem">Draw your signature *</span>
+        <canvas id="signature" class="signature-canvas"></canvas>
+        <div class="signature-actions">
+          <button type="button" class="btn ghost sm" id="clear-sig">Clear signature</button>
+          <span class="hint">Sign with your mouse or finger</span>
+        </div>
+      </div>
+
+      <div class="notice error hidden" id="agreement-error"></div>
+      <div class="btn-row">
+        <button class="btn secondary" data-back>Back</button>
+        <button class="btn" id="submit-booking">Confirm booking</button>
+      </div>
+    </section>
+
+    <!-- CONFIRMATION -->
+    <section class="card step-section hidden" id="confirmation">
+      <div class="confirm-icon">&#10003;</div>
+      <h2 class="center">You're booked!</h2>
+      <p class="center sub" id="confirm-summary"></p>
+      <div class="price-box" id="confirm-price"></div>
+      <div id="confirm-payment" style="margin-top:18px"></div>
+      <div id="confirm-contact" class="center muted" style="margin-top:18px;font-size:0.9rem"></div>
+    </section>
+
+    <p class="center muted" style="margin-top:26px;font-size:0.82rem">
+      <a href="/admin">Owner / admin login</a>
+    </p>
+  </main>
+
+  <div class="spinner-overlay hidden" id="spinner"><div class="spinner"></div></div>
+
+  <script type="module" src="/js/booking.js"></script>
+</body>
+</html>

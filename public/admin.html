@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin · Bookings</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <!-- LOGIN -->
+  <section id="login-view" class="wrap" style="max-width:420px">
+    <div class="card" style="margin-top:60px">
+      <h2>Owner / Admin</h2>
+      <p class="sub">Enter your admin password to manage bookings.</p>
+      <label class="field"><span>Password</span>
+        <input type="password" id="admin-password" autocomplete="current-password" /></label>
+      <div class="notice error hidden" id="login-error"></div>
+      <div class="btn-row"><span></span><button class="btn" id="login-btn">Log in</button></div>
+      <p class="center muted" style="margin-top:10px;font-size:0.85rem"><a href="/">&larr; Back to booking site</a></p>
+    </div>
+  </section>
+
+  <!-- DASHBOARD -->
+  <div id="dash-view" class="hidden">
+    <div class="admin-top">
+      <h1 id="dash-title">Booking Admin</h1>
+      <button class="btn secondary sm" id="logout-btn">Log out</button>
+    </div>
+    <div class="wrap wrap-wide">
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="bookings">Bookings</button>
+        <button class="tab-btn" data-tab="timeoff">House Time-Off</button>
+        <button class="tab-btn" data-tab="settings">Settings</button>
+      </div>
+
+      <!-- BOOKINGS TAB -->
+      <section id="tab-bookings" class="tab-panel">
+        <div id="bookings-empty" class="notice info hidden">No bookings yet.</div>
+        <div class="card" style="margin-top:0;padding:0;overflow-x:auto">
+          <table id="bookings-table">
+            <thead><tr>
+              <th>Ref</th><th>Check-in</th><th>Check-out</th><th>Nights</th>
+              <th>Guest</th><th>Party</th><th>Boating</th><th>Total</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- TIME OFF TAB -->
+      <section id="tab-timeoff" class="tab-panel hidden">
+        <div class="card" style="margin-top:0">
+          <h2>Block dates (house time-off)</h2>
+          <p class="sub">Blocked dates won't be bookable. Both the start and end dates are included.</p>
+          <div class="row">
+            <label class="field"><span>Start date</span><input type="date" id="off-start" /></label>
+            <label class="field"><span>End date</span><input type="date" id="off-end" /></label>
+            <label class="field"><span>Reason (optional)</span><input type="text" id="off-reason" placeholder="Maintenance, personal use…" /></label>
+          </div>
+          <div class="notice error hidden" id="off-error"></div>
+          <div class="btn-row"><span></span><button class="btn" id="off-add">Add time-off</button></div>
+        </div>
+        <div class="card">
+          <h2>Current blocks</h2>
+          <div id="timeoff-list"></div>
+        </div>
+      </section>
+
+      <!-- SETTINGS TAB -->
+      <section id="tab-settings" class="tab-panel hidden">
+        <div class="card" style="margin-top:0">
+          <h2>Pricing & details</h2>
+          <p class="sub">These appear on your public booking page.</p>
+          <label class="field"><span>Property name</span><input type="text" id="set-property_name" /></label>
+          <div class="row">
+            <label class="field"><span>Base price ($, whole stay)</span><input type="number" id="set-base_price" min="0" step="0.01" /></label>
+            <label class="field"><span>Gas fee ($, boating/equipment)</span><input type="number" id="set-gas_fee" min="0" step="0.01" /></label>
+          </div>
+          <div class="row">
+            <label class="field"><span>Max nights</span><input type="number" id="set-max_nights" min="1" max="14" /></label>
+            <label class="field"><span>Max guests (incl. booker)</span><input type="number" id="set-max_guests" min="1" max="20" /></label>
+          </div>
+          <label class="field"><span>Payment link (paste later — Stripe/PayPal/Venmo, etc.)</span>
+            <input type="text" id="set-payment_link" placeholder="https://…" /></label>
+          <div class="row">
+            <label class="field"><span>Contact email</span><input type="email" id="set-contact_email" /></label>
+            <label class="field"><span>Contact phone</span><input type="tel" id="set-contact_phone" /></label>
+          </div>
+          <label class="field"><span>Agreement text (guests read & sign this)</span>
+            <textarea id="set-agreement_text" style="min-height:240px;font-family:inherit"></textarea></label>
+          <div class="notice info hidden" id="settings-saved">Saved!</div>
+          <div class="btn-row"><span></span><button class="btn" id="settings-save">Save settings</button></div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- BOOKING DETAIL MODAL -->
+  <div id="modal" class="modal-backdrop hidden">
+    <div class="modal">
+      <div class="modal-head">
+        <h2 id="modal-title">Booking</h2>
+        <button class="btn ghost sm" id="modal-close">&times; Close</button>
+      </div>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <div class="spinner-overlay hidden" id="spinner"><div class="spinner"></div></div>
+
+  <script type="module" src="/js/admin.js"></script>
+</body>
+</html>

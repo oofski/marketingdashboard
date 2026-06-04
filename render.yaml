@@ -1,0 +1,23 @@
+# Render Blueprint — deploys the booking site as a free web service.
+# In Render: New + → "Blueprint" → connect this repo. Render reads this file.
+# You'll be asked to fill in the values marked `sync: false` (your secrets).
+services:
+  - type: web
+    name: lakehouse-booking
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      # Your admin login password — set this in the Render dashboard.
+      - key: ADMIN_PASSWORD
+        sync: false
+      # Auto-generated random secret used to sign admin sessions.
+      - key: SESSION_SECRET
+        generateValue: true
+      # Free Turso database connection (see README → "Going Live").
+      # Leave these blank to run without persistence (data resets on restart).
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_AUTH_TOKEN
+        sync: false
