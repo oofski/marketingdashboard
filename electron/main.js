@@ -145,14 +145,56 @@ app.whenReady().then(() => {
     version: app.getVersion(),
   }));
 
-  createWindow();
+  // --- Auto-update status, surfaced to the UI -----------------------------
+  // The renderer pulls the current status on mount (update:get) and then
+  // listens for live pushes (update:status) as the download progresses.
+  let mainWindow = null;
+  let updateStatus = { state: app.isPackaged ? 'idle' : 'dev', version: app.getVersion() };
+
+  function setUpdateStatus(next) {
+    updateStatus = { version: app.getVersion(), ...next };
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update:status', updateStatus);
+    }
+  }
+
+  ipcMain.handle('update:get', () => updateStatus);
+  ipcMain.handle('update:check', () => {
+    if (app.isPackaged) {
+      autoUpdater
+        .checkForUpdates()
+        .catch((err) => setUpdateStatus({ state: 'error', message: String(err?.message || err) }));
+    }
+    return updateStatus;
+  });
+  ipcMain.handle('update:install', () => {
+    if (updateStatus.state === 'downloaded') autoUpdater.quitAndInstall();
+  });
+
+  mainWindow = createWindow();
 
   // In a packaged build, check the GitHub Releases feed for a newer version,
   // download it in the background, and install it the next time the app quits.
+  // Every step is pushed to the UI so staff can see "up to date" vs "updating".
   if (app.isPackaged) {
-    autoUpdater.checkForUpdatesAndNotify().catch((err) => {
-      console.error('Auto-update check failed', err);
-    });
+    autoUpdater.autoDownload = true;
+    autoUpdater.on('checking-for-update', () => setUpdateStatus({ state: 'checking' }));
+    autoUpdater.on('update-available', (info) =>
+      setUpdateStatus({ state: 'downloading', percent: 0, newVersion: info?.version })
+    );
+    autoUpdater.on('update-not-available', () => setUpdateStatus({ state: 'latest' }));
+    autoUpdater.on('download-progress', (p) =>
+      setUpdateStatus({ state: 'downloading', percent: Math.round(p?.percent || 0) })
+    );
+    autoUpdater.on('update-downloaded', (info) =>
+      setUpdateStatus({ state: 'downloaded', newVersion: info?.version })
+    );
+    autoUpdater.on('error', (err) =>
+      setUpdateStatus({ state: 'error', message: String(err?.message || err) })
+    );
+    autoUpdater
+      .checkForUpdates()
+      .catch((err) => setUpdateStatus({ state: 'error', message: String(err?.message || err) }));
   }
 
   app.on('activate', () => {

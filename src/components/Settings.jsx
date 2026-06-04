@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Save, Download, Upload, FolderOpen, HardDrive, RotateCcw } from 'lucide-react';
+import { Save, Download, Upload, FolderOpen, HardDrive, RotateCcw, Info, RefreshCw } from 'lucide-react';
 import { Settings as S, exportDatabase, importDatabase, Audit } from '../services/db.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import { useUpdateStatus, useAppVersion, describeUpdate } from '../services/updates.js';
 
 const FIELDS = [
   { key: 'company_name', label: 'Company name' },
@@ -17,6 +18,9 @@ export default function Settings() {
   const [saved, setSaved] = useState(false);
   const [dbInfo, setDbInfo] = useState(null);
   const isElectron = typeof window !== 'undefined' && window.electronAPI?.isElectron;
+  const version = useAppVersion();
+  const { status: appUpdate, checkForUpdates, installUpdate } = useUpdateStatus();
+  const updateSummary = describeUpdate(appUpdate, version);
 
   useEffect(() => {
     setValues(S.all());
@@ -153,6 +157,31 @@ export default function Settings() {
             <input type="file" accept=".db" onChange={restore} style={{ display: 'none' }} />
           </label>
         </div>
+      </div>
+
+      <div className="card" style={{ maxWidth: 760 }}>
+        <h3 className="card-title"><Info size={15} /> About &amp; updates</h3>
+        <div className="data-path">
+          <div className="text-xs text-muted">Installed version</div>
+          <div className="path-value">Onboarding Tracker v{version}</div>
+          <div className="text-xs text-muted mt-2">{updateSummary.label}</div>
+        </div>
+        {isElectron ? (
+          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+            <button className="btn" onClick={checkForUpdates}>
+              <RefreshCw size={14} /> Check for updates
+            </button>
+            {appUpdate.state === 'downloaded' && (
+              <button className="btn btn-primary" onClick={installUpdate}>
+                <Download size={14} /> Restart to apply update
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="text-xs text-muted mt-2">
+            Updates apply automatically in the installed desktop app.
+          </div>
+        )}
       </div>
     </div>
   );

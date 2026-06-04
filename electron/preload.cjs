@@ -9,5 +9,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   useDefaultFolder: () => ipcRenderer.invoke('db:useDefault'),
   exportDoc: (filename, data) => ipcRenderer.invoke('doc:export', { filename, data }),
   appInfo: () => ipcRenderer.invoke('app:info'),
+  getUpdateStatus: () => ipcRenderer.invoke('update:get'),
+  checkForUpdates: () => ipcRenderer.invoke('update:check'),
+  installUpdate: () => ipcRenderer.invoke('update:install'),
+  onUpdateStatus: (cb) => {
+    const handler = (_e, status) => cb(status);
+    ipcRenderer.on('update:status', handler);
+    return () => ipcRenderer.removeListener('update:status', handler);
+  },
   isElectron: true,
 });

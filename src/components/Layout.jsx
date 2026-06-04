@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, CheckSquare, Settings as SettingsIcon,
-  UserCog, ListChecks, KeyRound, HardDrive, LogOut, Moon, Sun, RefreshCw,
+  UserCog, ListChecks, KeyRound, HardDrive, LogOut, Moon, Sun, RefreshCw, Download,
 } from 'lucide-react';
 import { useAuth, isAdmin } from '../contexts/AuthContext.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { hasExternalUpdate, Settings as S } from '../services/db.js';
+import { useUpdateStatus, useAppVersion } from '../services/updates.js';
 
 export default function Layout({ children }) {
   const { user, logout } = useAuth();
@@ -15,6 +16,8 @@ export default function Layout({ children }) {
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [localData, setLocalData] = useState(false);
   const admin = isAdmin(user);
+  const version = useAppVersion();
+  const { status: appUpdate, installUpdate } = useUpdateStatus();
 
   const company = S.get('company_name') || 'Neroli';
   const subtitle = S.get('company_subtitle') || 'Onboarding';
@@ -101,10 +104,28 @@ export default function Layout({ children }) {
               <LogOut size={14} /> Sign out
             </button>
           </div>
+          <div className="sidebar-version">
+            <span>v{version}</span>
+            {appUpdate.state === 'downloaded' && <span className="badge badge-accent">Update ready</span>}
+            {appUpdate.state === 'downloading' && (
+              <span>{appUpdate.percent ? `Updating ${appUpdate.percent}%` : 'Updating…'}</span>
+            )}
+          </div>
         </div>
       </aside>
 
       <main className="main">
+        {appUpdate.state === 'downloaded' && (
+          <div className="update-banner">
+            <span>
+              <Download size={14} /> A new version of the app is ready
+              {appUpdate.newVersion ? ` (v${appUpdate.newVersion})` : ''}.
+            </span>
+            <button className="btn btn-sm btn-primary" onClick={installUpdate}>
+              Restart to update
+            </button>
+          </div>
+        )}
         {updateAvailable && (
           <div className="update-banner">
             <span>
