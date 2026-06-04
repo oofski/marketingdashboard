@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Booking Site — Local Preview</title>
+  <title>Admin Portal — Local Preview</title>
   <style>
 :root {
   --bg: #f4f1ea;
@@ -254,201 +254,113 @@ tr.clickable:hover { background: var(--surface-2); }
 </head>
 <body>
 <div style="background:#fff3cd;color:#664d03;padding:9px 14px;text-align:center;font-size:0.85rem;border-bottom:1px solid #ffe69c">
-  Local preview of the <strong>booking site</strong> — includes sample data; bookings save only in this browser.
-  &nbsp;<a href="admin-preview.html" style="color:#664d03;font-weight:700">Open admin preview →</a>
+  Local preview of the <strong>admin portal</strong> — any password logs you in; data is this browser only.
+  &nbsp;<a href="preview.html" style="color:#664d03;font-weight:700">← Open booking site</a>
   &nbsp;<button onclick="window.__resetPreview && window.__resetPreview()" style="margin-left:6px;cursor:pointer;border:1px solid #997404;background:#fff;border-radius:6px;padding:2px 10px">Reset demo</button>
 </div>
-  <header class="site-header">
-    <h1 id="property-name">Book Your Stay</h1>
-    <p>Reserve your dates below — up to 3 nights / 4 days.</p>
-    <div class="price-banner" id="price-banner"></div>
-  </header>
+  <!-- LOGIN -->
+  <section id="login-view" class="wrap" style="max-width:420px">
+    <div class="card" style="margin-top:60px">
+      <h2>Owner / Admin</h2>
+      <p class="sub">Enter your admin password to manage bookings.</p>
+      <label class="field"><span>Password</span>
+        <input type="password" id="admin-password" autocomplete="current-password" /></label>
+      <div class="notice error hidden" id="login-error"></div>
+      <div class="btn-row"><span></span><button class="btn" id="login-btn">Log in</button></div>
+      <p class="center muted" style="margin-top:10px;font-size:0.85rem"><a href="/">&larr; Back to booking site</a></p>
+    </div>
+  </section>
 
-  <main class="wrap">
-    <div class="steps" id="steps"></div>
-
-    <!-- STEP 1: NIGHTS -->
-    <section class="card step-section" data-step="0">
-      <h2>How many nights?</h2>
-      <p class="sub">Choose the length of your stay. The maximum is 3 nights (4 days).</p>
-      <div class="nights-grid" id="nights-grid"></div>
-      <div class="btn-row">
-        <span></span>
-        <button class="btn" id="nights-next" disabled>Continue</button>
-      </div>
-    </section>
-
-    <!-- STEP 2: DATES -->
-    <section class="card step-section hidden" data-step="1">
-      <h2>Pick your check-in date</h2>
-      <p class="sub">Greyed-out days aren't available for the length of stay you chose.</p>
-      <div id="calendar"></div>
-      <div id="selection-summary" class="selection-summary hidden"></div>
-      <div class="btn-row">
-        <button class="btn secondary" data-back>Back</button>
-        <button class="btn" id="dates-next" disabled>Continue</button>
-      </div>
-    </section>
-
-    <!-- STEP 3: YOUR INFO -->
-    <section class="card step-section hidden" data-step="2">
-      <h2>Your details</h2>
-      <p class="sub">You're the person making the booking (guest #1).</p>
-      <div class="row">
-        <label class="field"><span>First name *</span><input type="text" id="b-first" autocomplete="given-name" /></label>
-        <label class="field"><span>Last name *</span><input type="text" id="b-last" autocomplete="family-name" /></label>
-      </div>
-      <div class="row">
-        <label class="field"><span>Email *</span><input type="email" id="b-email" autocomplete="email" /></label>
-        <label class="field"><span>Phone *</span><input type="tel" id="b-phone" autocomplete="tel" /></label>
-      </div>
-      <label class="field" style="max-width:160px"><span>Your age *</span><input type="number" id="b-age" min="0" max="120" /></label>
-
-      <div class="guest-card" style="margin-top:20px;background:var(--primary-soft)">
-        <label class="checkbox-row" style="margin-top:0">
-          <input type="checkbox" id="boating" />
-          <span>I plan to go <strong>boating</strong> and/or use <strong>gas-powered equipment</strong>.
-            <span class="hint" id="gas-hint"></span></span>
-        </label>
+  <!-- DASHBOARD -->
+  <div id="dash-view" class="hidden">
+    <div class="admin-top">
+      <h1 id="dash-title">Booking Admin</h1>
+      <button class="btn secondary sm" id="logout-btn">Log out</button>
+    </div>
+    <div class="wrap wrap-wide">
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="bookings">Bookings</button>
+        <button class="tab-btn" data-tab="timeoff">House Time-Off</button>
+        <button class="tab-btn" data-tab="settings">Settings</button>
       </div>
 
-      <div class="notice error hidden" id="details-error"></div>
-      <div class="btn-row">
-        <button class="btn secondary" data-back>Back</button>
-        <button class="btn" id="details-next">Continue</button>
-      </div>
-    </section>
-
-    <!-- STEP 4: GUESTS + IDS -->
-    <section class="card step-section hidden" data-step="3">
-      <h2>Guests & IDs</h2>
-      <p class="sub" id="guests-sub"></p>
-      <div id="guest-list"></div>
-      <button class="btn secondary sm" id="add-guest" style="margin-top:14px">+ Add a guest</button>
-      <div class="notice error hidden" id="guests-error"></div>
-      <div class="btn-row">
-        <button class="btn secondary" data-back>Back</button>
-        <button class="btn" id="guests-next">Continue</button>
-      </div>
-    </section>
-
-    <!-- STEP 5: AGREEMENT + SIGN -->
-    <section class="card step-section hidden" data-step="4">
-      <h2>Review, agree & sign</h2>
-      <p class="sub" id="review-line"></p>
-
-      <div class="price-box" id="price-box"></div>
-
-      <h3 style="margin:22px 0 8px">Agreement</h3>
-      <div class="agreement-text" id="agreement-text"></div>
-
-      <label class="checkbox-row">
-        <input type="checkbox" id="agree" />
-        <span>I have read and agree to the terms of this agreement, and I am authorized to book on behalf of my party.</span>
-      </label>
-
-      <label class="field"><span>Type your full legal name to sign *</span>
-        <input type="text" id="signed-name" /></label>
-
-      <div class="signature-wrap">
-        <span style="font-weight:600;font-size:0.9rem">Draw your signature *</span>
-        <canvas id="signature" class="signature-canvas"></canvas>
-        <div class="signature-actions">
-          <button type="button" class="btn ghost sm" id="clear-sig">Clear signature</button>
-          <span class="hint">Sign with your mouse or finger</span>
+      <!-- BOOKINGS TAB -->
+      <section id="tab-bookings" class="tab-panel">
+        <div id="bookings-empty" class="notice info hidden">No bookings yet.</div>
+        <div class="card" style="margin-top:0;padding:0;overflow-x:auto">
+          <table id="bookings-table">
+            <thead><tr>
+              <th>Ref</th><th>Check-in</th><th>Check-out</th><th>Nights</th>
+              <th>Guest</th><th>Party</th><th>Boating</th><th>Total</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
         </div>
+      </section>
+
+      <!-- TIME OFF TAB -->
+      <section id="tab-timeoff" class="tab-panel hidden">
+        <div class="card" style="margin-top:0">
+          <h2>Block dates (house time-off)</h2>
+          <p class="sub">Blocked dates won't be bookable. Both the start and end dates are included.</p>
+          <div class="row">
+            <label class="field"><span>Start date</span><input type="date" id="off-start" /></label>
+            <label class="field"><span>End date</span><input type="date" id="off-end" /></label>
+            <label class="field"><span>Reason (optional)</span><input type="text" id="off-reason" placeholder="Maintenance, personal use…" /></label>
+          </div>
+          <div class="notice error hidden" id="off-error"></div>
+          <div class="btn-row"><span></span><button class="btn" id="off-add">Add time-off</button></div>
+        </div>
+        <div class="card">
+          <h2>Current blocks</h2>
+          <div id="timeoff-list"></div>
+        </div>
+      </section>
+
+      <!-- SETTINGS TAB -->
+      <section id="tab-settings" class="tab-panel hidden">
+        <div class="card" style="margin-top:0">
+          <h2>Pricing & details</h2>
+          <p class="sub">These appear on your public booking page.</p>
+          <label class="field"><span>Property name</span><input type="text" id="set-property_name" /></label>
+          <div class="row">
+            <label class="field"><span>Base price ($, whole stay)</span><input type="number" id="set-base_price" min="0" step="0.01" /></label>
+            <label class="field"><span>Gas fee ($, boating/equipment)</span><input type="number" id="set-gas_fee" min="0" step="0.01" /></label>
+          </div>
+          <div class="row">
+            <label class="field"><span>Max nights</span><input type="number" id="set-max_nights" min="1" max="14" /></label>
+            <label class="field"><span>Max guests (incl. booker)</span><input type="number" id="set-max_guests" min="1" max="20" /></label>
+          </div>
+          <label class="field"><span>Payment link (paste later — Stripe/PayPal/Venmo, etc.)</span>
+            <input type="text" id="set-payment_link" placeholder="https://…" /></label>
+          <div class="row">
+            <label class="field"><span>Contact email</span><input type="email" id="set-contact_email" /></label>
+            <label class="field"><span>Contact phone</span><input type="tel" id="set-contact_phone" /></label>
+          </div>
+          <label class="field"><span>Agreement text (guests read & sign this)</span>
+            <textarea id="set-agreement_text" style="min-height:240px;font-family:inherit"></textarea></label>
+          <div class="notice info hidden" id="settings-saved">Saved!</div>
+          <div class="btn-row"><span></span><button class="btn" id="settings-save">Save settings</button></div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- BOOKING DETAIL MODAL -->
+  <div id="modal" class="modal-backdrop hidden">
+    <div class="modal">
+      <div class="modal-head">
+        <h2 id="modal-title">Booking</h2>
+        <button class="btn ghost sm" id="modal-close">&times; Close</button>
       </div>
-
-      <div class="notice error hidden" id="agreement-error"></div>
-      <div class="btn-row">
-        <button class="btn secondary" data-back>Back</button>
-        <button class="btn" id="submit-booking">Confirm booking</button>
-      </div>
-    </section>
-
-    <!-- CONFIRMATION -->
-    <section class="card step-section hidden" id="confirmation">
-      <div class="confirm-icon">&#10003;</div>
-      <h2 class="center">You're booked!</h2>
-      <p class="center sub" id="confirm-summary"></p>
-      <div class="price-box" id="confirm-price"></div>
-      <div id="confirm-payment" style="margin-top:18px"></div>
-      <div id="confirm-contact" class="center muted" style="margin-top:18px;font-size:0.9rem"></div>
-    </section>
-
-    <p class="center muted" style="margin-top:26px;font-size:0.82rem">
-      <a href="admin-preview.html">Owner / admin preview</a>
-    </p>
-  </main>
+      <div id="modal-body"></div>
+    </div>
+  </div>
 
   <div class="spinner-overlay hidden" id="spinner"><div class="spinner"></div></div>
 
   <script>
 (function () {
-// Minimal vanilla canvas signature pad. No external dependencies.
-function createSignaturePad(canvas) {
-  const ctx = canvas.getContext('2d');
-  let drawing = false;
-  let dirty = false;
-  let last = null;
-
-  function resize() {
-    const ratio = Math.max(window.devicePixelRatio || 1, 1);
-    const rect = canvas.getBoundingClientRect();
-    // Preserve nothing on resize; just reset to a clean white canvas.
-    canvas.width = rect.width * ratio;
-    canvas.height = rect.height * ratio;
-    ctx.scale(ratio, ratio);
-    ctx.lineWidth = 2.2;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = '#1f2a30';
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, rect.width, rect.height);
-    dirty = false;
-  }
-
-  function pos(e) {
-    const rect = canvas.getBoundingClientRect();
-    const point = e.touches ? e.touches[0] : e;
-    return { x: point.clientX - rect.left, y: point.clientY - rect.top };
-  }
-
-  function start(e) {
-    e.preventDefault();
-    drawing = true;
-    last = pos(e);
-  }
-  function move(e) {
-    if (!drawing) return;
-    e.preventDefault();
-    const p = pos(e);
-    ctx.beginPath();
-    ctx.moveTo(last.x, last.y);
-    ctx.lineTo(p.x, p.y);
-    ctx.stroke();
-    last = p;
-    dirty = true;
-  }
-  function end() { drawing = false; }
-
-  canvas.addEventListener('mousedown', start);
-  canvas.addEventListener('mousemove', move);
-  window.addEventListener('mouseup', end);
-  canvas.addEventListener('touchstart', start, { passive: false });
-  canvas.addEventListener('touchmove', move, { passive: false });
-  canvas.addEventListener('touchend', end);
-  window.addEventListener('resize', resize);
-
-  resize();
-
-  return {
-    clear: resize,
-    isEmpty: () => !dirty,
-    toDataURL: () => canvas.toDataURL('image/png'),
-  };
-}
-
 // Availability calendar. Shows which check-in dates have enough consecutive
 // free nights for the chosen stay length, and lets the user pick one.
 
@@ -695,417 +607,288 @@ function fetch(url, opts) {
 }
 
 
-const ALLOWED = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'application/pdf'];
-const MAX_BYTES = 5 * 1024 * 1024;
-const STEP_LABELS = ['Nights', 'Dates', 'Your info', 'Guests', 'Agreement'];
-
 const $ = (id) => document.getElementById(id);
 const money = (n) => `${Number(n).toFixed(2).replace(/\.00$/, '')}`;
+const TOKEN_KEY = 'booking_admin_token';
 
-let config = null;
-let calendar = null;
-let sigPad = null;
-let currentStep = 0;
+let token = localStorage.getItem(TOKEN_KEY) || null;
 
-const state = {
-  nights: null,
-  checkIn: null,
-  boating: false,
-  booker: { firstName: '', lastName: '', email: '', phone: '', age: '', dlData: null, voterData: null },
-  guests: [], // additional guests beyond the booker
-  agreedToTerms: false,
-  signedName: '',
-};
+// ----------------------------- auth -----------------------------
+function showSpinner(on) { $('spinner').classList.toggle('hidden', !on); }
 
-// ----------------------------- boot -----------------------------
-init();
+async function authFetch(url, opts = {}) {
+  const res = await fetch(url, {
+    ...opts,
+    headers: { ...(opts.headers || {}), Authorization: `Bearer ${token}` },
+  });
+  if (res.status === 401) { logout(); throw new Error('unauthorized'); }
+  return res;
+}
 
-async function init() {
+function showLogin() { $('login-view').classList.remove('hidden'); $('dash-view').classList.add('hidden'); }
+function showDash() { $('login-view').classList.add('hidden'); $('dash-view').classList.remove('hidden'); }
+
+async function login() {
+  const password = $('admin-password').value;
+  const errBox = $('login-error');
   showSpinner(true);
   try {
-    config = await fetch('/api/config').then((r) => r.json());
-  } catch {
-    document.querySelector('main').innerHTML = '<div class="notice error">Could not load the booking site. Please refresh.</div>';
-    showSpinner(false);
-    return;
-  }
-
-  $('property-name').textContent = config.propertyName;
-  document.title = `Book Your Stay · ${config.propertyName}`;
-  $('price-banner').innerHTML =
-    `<span class="chip">From ${money(config.basePrice)} per stay</span>` +
-    `<span class="chip">+ ${money(config.gasFee)} gas (boating / gas equipment)</span>`;
-  $('gas-hint').textContent = `A ${money(config.gasFee)} gas charge will be added (final amount may be adjusted).`;
-  $('agreement-text').textContent = config.agreementText;
-
-  buildSteps();
-  buildNightsOptions();
-  buildCalendar();
-  wireDetails();
-  wireGuests();
-  wireAgreement();
-
-  document.querySelectorAll('[data-back]').forEach((b) => (b.onclick = () => goToStep(currentStep - 1)));
-  showSpinner(false);
-}
-
-// ----------------------------- steps -----------------------------
-function buildSteps() {
-  $('steps').innerHTML = STEP_LABELS.map((label, i) =>
-    `<div class="step" data-i="${i}"><span class="n">${i + 1}</span>${label}</div>`).join('');
-}
-
-function updateStepsIndicator() {
-  document.querySelectorAll('#steps .step').forEach((el) => {
-    const i = Number(el.dataset.i);
-    el.classList.toggle('active', i === currentStep);
-    el.classList.toggle('done', i < currentStep);
-  });
-}
-
-function goToStep(i) {
-  if (i < 0 || i > 4) return;
-  currentStep = i;
-  document.querySelectorAll('.step-section').forEach((s) => s.classList.add('hidden'));
-  $('confirmation').classList.add('hidden');
-  document.querySelector(`.step-section[data-step="${i}"]`).classList.remove('hidden');
-  updateStepsIndicator();
-
-  if (i === 1) { calendar.setNights(state.nights).render(); refreshDatesNext(); }
-  if (i === 3) renderGuests();
-  if (i === 4) enterAgreement();
-
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-// ----------------------------- step 1: nights -----------------------------
-function buildNightsOptions() {
-  const max = config.maxNights || 3;
-  const grid = $('nights-grid');
-  let html = '';
-  for (let n = 1; n <= max; n++) {
-    html += `<div class="night-opt" data-n="${n}">
-      <div class="big">${n}</div>
-      <div class="small">${n === 1 ? 'night' : 'nights'} · ${n + 1} days</div>
-    </div>`;
-  }
-  grid.innerHTML = html;
-  grid.querySelectorAll('.night-opt').forEach((el) => {
-    el.onclick = () => {
-      state.nights = Number(el.dataset.n);
-      grid.querySelectorAll('.night-opt').forEach((x) => x.classList.toggle('selected', x === el));
-      $('nights-next').disabled = false;
-    };
-  });
-  $('nights-next').onclick = () => goToStep(1);
-}
-
-// ----------------------------- step 2: dates -----------------------------
-function buildCalendar() {
-  calendar = createCalendar($('calendar'), { onSelect: onDatePicked });
-  $('dates-next').onclick = () => goToStep(2);
-  loadAvailability();
-}
-
-async function loadAvailability() {
-  try {
-    const data = await fetch('/api/blocked').then((r) => r.json());
-    calendar.setBlocked(new Set(data.blockedNights), data.today);
-  } catch { /* calendar still renders, just without blocks */ }
-}
-
-function onDatePicked(date) {
-  state.checkIn = date;
-  refreshDatesNext();
-}
-
-function refreshDatesNext() {
-  const summary = $('selection-summary');
-  if (state.checkIn) {
-    const out = addDays(state.checkIn, state.nights);
-    summary.classList.remove('hidden');
-    summary.innerHTML = `Check-in <strong>${fmtLong(state.checkIn)}</strong><br>` +
-      `Check-out <strong>${fmtLong(out)}</strong> · ${state.nights} ${state.nights === 1 ? 'night' : 'nights'}`;
-    $('dates-next').disabled = false;
-  } else {
-    summary.classList.add('hidden');
-    $('dates-next').disabled = true;
-  }
-}
-
-// ----------------------------- step 3: your info -----------------------------
-function wireDetails() {
-  const map = { 'b-first': 'firstName', 'b-last': 'lastName', 'b-email': 'email', 'b-phone': 'phone', 'b-age': 'age' };
-  for (const [id, key] of Object.entries(map)) {
-    $(id).value = state.booker[key];
-    $(id).oninput = (e) => { state.booker[key] = e.target.value; };
-  }
-  $('boating').onchange = (e) => { state.boating = e.target.checked; };
-  $('details-next').onclick = () => {
-    const errs = [];
-    if (!state.booker.firstName.trim()) errs.push('first name');
-    if (!state.booker.lastName.trim()) errs.push('last name');
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(state.booker.email.trim())) errs.push('a valid email');
-    if (!state.booker.phone.trim()) errs.push('phone number');
-    const age = Number(state.booker.age);
-    if (!Number.isInteger(age) || age < 0 || age > 120) errs.push('a valid age');
-    const box = $('details-error');
-    if (errs.length) {
-      box.textContent = `Please enter ${errs.join(', ')}.`;
-      box.classList.remove('hidden');
-      return;
-    }
-    box.classList.add('hidden');
-    goToStep(3);
-  };
-}
-
-// ----------------------------- step 4: guests & IDs -----------------------------
-function wireGuests() {
-  $('add-guest').onclick = () => {
-    const total = 1 + state.guests.length;
-    if (total >= config.maxGuests) return;
-    state.guests.push({ firstName: '', lastName: '', age: '', dlData: null, voterData: null });
-    renderGuests();
-  };
-  $('guests-next').onclick = () => {
-    const errs = [];
-    state.guests.forEach((g, i) => {
-      if (!g.firstName.trim() || !g.lastName.trim()) errs.push(`Guest ${i + 2} needs a first and last name`);
-      const a = Number(g.age);
-      if (!Number.isInteger(a) || a < 0 || a > 120) errs.push(`Guest ${i + 2} needs a valid age`);
-    });
-    const box = $('guests-error');
-    if (errs.length) {
-      box.innerHTML = errs.join('.<br>') + '.';
-      box.classList.remove('hidden');
-      return;
-    }
-    box.classList.add('hidden');
-    goToStep(4);
-  };
-}
-
-function uploadBox(label, who, kind, current) {
-  const id = `up-${kind}-${who}`;
-  const status = current ? `<div class="file-name">&#10003; Uploaded</div>` : '';
-  return `<div class="upload-box">
-    <label class="field" style="margin-top:0"><span>${label}</span>
-      <input type="file" id="${id}" accept="image/*,application/pdf" /></label>
-    <div id="${id}-name">${status}</div>
-  </div>`;
-}
-
-function renderGuests() {
-  const remaining = config.maxGuests - (1 + state.guests.length);
-  $('guests-sub').innerHTML =
-    `Up to <strong>${config.maxGuests}</strong> guests total, including you. ` +
-    `Driver's license / voter ID uploads are optional. ${remaining > 0 ? `You can add ${remaining} more.` : 'You\'ve reached the maximum.'}`;
-
-  const list = $('guest-list');
-  let html = `<div class="guest-card">
-      <div class="guest-head"><h4>You — ${escapeHtml(state.booker.firstName)} ${escapeHtml(state.booker.lastName)} (guest&nbsp;1)</h4></div>
-      <div class="muted" style="font-size:0.85rem">Age ${escapeHtml(String(state.booker.age))}</div>
-      <div class="uploads">
-        ${uploadBox("Driver's license (optional)", 'booker', 'dl', state.booker.dlData)}
-        ${uploadBox('Voter ID (optional)', 'booker', 'voter', state.booker.voterData)}
-      </div>
-    </div>`;
-
-  state.guests.forEach((g, i) => {
-    html += `<div class="guest-card">
-      <div class="guest-head"><h4>Guest ${i + 2}</h4>
-        <button type="button" class="btn ghost sm" data-remove="${i}" style="color:var(--danger)">Remove</button></div>
-      <div class="row">
-        <label class="field"><span>First name *</span><input type="text" data-g="${i}" data-k="firstName" value="${escapeHtml(g.firstName)}" /></label>
-        <label class="field"><span>Last name *</span><input type="text" data-g="${i}" data-k="lastName" value="${escapeHtml(g.lastName)}" /></label>
-        <label class="field" style="max-width:110px"><span>Age *</span><input type="number" min="0" max="120" data-g="${i}" data-k="age" value="${escapeHtml(String(g.age))}" /></label>
-      </div>
-      <div class="uploads">
-        ${uploadBox("Driver's license (optional)", `g${i}`, 'dl', g.dlData)}
-        ${uploadBox('Voter ID (optional)', `g${i}`, 'voter', g.voterData)}
-      </div>
-    </div>`;
-  });
-  list.innerHTML = html;
-
-  $('add-guest').disabled = remaining <= 0;
-
-  list.querySelectorAll('input[type=text], input[type=number]').forEach((inp) => {
-    inp.oninput = (e) => {
-      const i = Number(e.target.dataset.g);
-      state.guests[i][e.target.dataset.k] = e.target.value;
-    };
-  });
-  list.querySelectorAll('[data-remove]').forEach((btn) => {
-    btn.onclick = () => { state.guests.splice(Number(btn.dataset.remove), 1); renderGuests(); };
-  });
-
-  // wire file inputs
-  bindUpload('up-dl-booker', (d) => (state.booker.dlData = d));
-  bindUpload('up-voter-booker', (d) => (state.booker.voterData = d));
-  state.guests.forEach((g, i) => {
-    bindUpload(`up-dl-g${i}`, (d) => (state.guests[i].dlData = d));
-    bindUpload(`up-voter-g${i}`, (d) => (state.guests[i].voterData = d));
-  });
-}
-
-function bindUpload(id, setter) {
-  const input = $(id);
-  if (!input) return;
-  input.onchange = async (e) => {
-    const file = e.target.files[0];
-    const nameEl = $(`${id}-name`);
-    if (!file) { setter(null); nameEl.innerHTML = ''; return; }
-    if (!ALLOWED.includes(file.type)) {
-      nameEl.innerHTML = '<div class="file-name" style="color:var(--danger)">Unsupported file type</div>';
-      input.value = ''; setter(null); return;
-    }
-    if (file.size > MAX_BYTES) {
-      nameEl.innerHTML = '<div class="file-name" style="color:var(--danger)">File too large (max 5MB)</div>';
-      input.value = ''; setter(null); return;
-    }
-    const dataUrl = await fileToDataUrl(file);
-    setter(dataUrl);
-    nameEl.innerHTML = `<div class="file-name">&#10003; ${escapeHtml(file.name)}</div>`;
-  };
-}
-
-function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
-// ----------------------------- step 5: agreement -----------------------------
-function wireAgreement() {
-  $('clear-sig').onclick = () => sigPad && sigPad.clear();
-  $('agree').onchange = (e) => { state.agreedToTerms = e.target.checked; };
-  $('signed-name').oninput = (e) => { state.signedName = e.target.value; };
-  $('submit-booking').onclick = submitBooking;
-}
-
-function priceBreakdownHtml() {
-  const gas = state.boating ? config.gasFee : 0;
-  const total = config.basePrice + gas;
-  return `
-    <div class="price-line"><span>Stay (${state.nights} ${state.nights === 1 ? 'night' : 'nights'})</span><span>${money(config.basePrice)}</span></div>
-    ${state.boating ? `<div class="price-line"><span>Gas (boating / equipment)</span><span>${money(gas)}</span></div>` : ''}
-    <div class="price-line total"><span>Total</span><span>${money(total)}</span></div>
-    ${state.boating ? '<div class="hint">Final gas amount may be adjusted to actual usage.</div>' : ''}`;
-}
-
-function enterAgreement() {
-  const total = 1 + state.guests.length;
-  $('review-line').innerHTML =
-    `${state.nights} ${state.nights === 1 ? 'night' : 'nights'} · ` +
-    `${fmtLong(state.checkIn)} &rarr; ${fmtLong(addDays(state.checkIn, state.nights))} · ` +
-    `${total} ${total === 1 ? 'guest' : 'guests'}`;
-  $('price-box').innerHTML = priceBreakdownHtml();
-  // reflect current state into controls
-  $('agree').checked = state.agreedToTerms;
-  $('signed-name').value = state.signedName;
-  if (!sigPad) sigPad = createSignaturePad($('signature'));
-  else sigPad.clear();
-}
-
-async function submitBooking() {
-  const errs = [];
-  if (!state.agreedToTerms) errs.push('agree to the terms');
-  if (!state.signedName.trim()) errs.push('type your full name');
-  if (!sigPad || sigPad.isEmpty()) errs.push('draw your signature');
-  const box = $('agreement-error');
-  if (errs.length) {
-    box.textContent = `Please ${errs.join(', ')}.`;
-    box.classList.remove('hidden');
-    return;
-  }
-  box.classList.add('hidden');
-
-  const payload = {
-    checkIn: state.checkIn,
-    nights: state.nights,
-    boating: state.boating,
-    booker: {
-      firstName: state.booker.firstName.trim(),
-      lastName: state.booker.lastName.trim(),
-      email: state.booker.email.trim(),
-      phone: state.booker.phone.trim(),
-      age: Number(state.booker.age),
-      dlData: state.booker.dlData,
-      voterData: state.booker.voterData,
-    },
-    guests: state.guests.map((g) => ({
-      firstName: g.firstName.trim(),
-      lastName: g.lastName.trim(),
-      age: Number(g.age),
-      dlData: g.dlData,
-      voterData: g.voterData,
-    })),
-    agreedToTerms: true,
-    signedName: state.signedName.trim(),
-    signatureData: sigPad.toDataURL(),
-  };
-
-  showSpinner(true);
-  try {
-    const res = await fetch('/api/bookings', {
+    const res = await fetch('/api/admin/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ password }),
     });
     const data = await res.json();
     if (!res.ok) {
-      box.textContent = data.error || 'Something went wrong. Please try again.';
-      box.classList.remove('hidden');
+      errBox.textContent = data.error || 'Login failed.';
+      errBox.classList.remove('hidden');
       showSpinner(false);
       return;
     }
-    showConfirmation(data);
+    token = data.token;
+    localStorage.setItem(TOKEN_KEY, token);
+    errBox.classList.add('hidden');
+    $('admin-password').value = '';
+    showDash();
+    await loadBookings();
   } catch {
-    box.textContent = 'Network error. Please try again.';
-    box.classList.remove('hidden');
+    errBox.textContent = 'Network error.';
+    errBox.classList.remove('hidden');
   }
   showSpinner(false);
 }
 
-function showConfirmation(data) {
-  document.querySelectorAll('.step-section').forEach((s) => s.classList.add('hidden'));
-  document.querySelectorAll('#steps .step').forEach((el) => el.classList.add('done'));
-  const c = $('confirmation');
-  c.classList.remove('hidden');
-
-  $('confirm-summary').innerHTML =
-    `${config.propertyName} · Booking reference <strong>#${data.bookingId}</strong><br>` +
-    `${fmtLong(data.checkIn)} &rarr; ${fmtLong(data.checkOut)} · ${data.nights} ${data.nights === 1 ? 'night' : 'nights'}`;
-  $('confirm-price').innerHTML = priceBreakdownHtml();
-
-  const pay = $('confirm-payment');
-  if (data.paymentLink) {
-    pay.innerHTML = `<div class="center"><a class="btn" href="${escapeAttr(data.paymentLink)}" target="_blank" rel="noopener">Pay now (${money(data.totalPrice)})</a>
-      <div class="hint" style="margin-top:8px">You'll be taken to a secure payment page.</div></div>`;
-  } else {
-    pay.innerHTML = `<div class="notice info center">Your booking is recorded. We'll contact you with payment instructions for the ${money(data.totalPrice)} total.</div>`;
-  }
-
-  const bits = [];
-  if (config.contactEmail) bits.push(`Email: <a href="mailto:${escapeAttr(config.contactEmail)}">${escapeHtml(config.contactEmail)}</a>`);
-  if (config.contactPhone) bits.push(`Phone: <a href="tel:${escapeAttr(config.contactPhone)}">${escapeHtml(config.contactPhone)}</a>`);
-  $('confirm-contact').innerHTML = bits.length ? `Questions? ${bits.join(' &nbsp;·&nbsp; ')}` : '';
-
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+function logout() {
+  token = null;
+  localStorage.removeItem(TOKEN_KEY);
+  showLogin();
 }
 
-// ----------------------------- utils -----------------------------
-function showSpinner(on) { $('spinner').classList.toggle('hidden', !on); }
+// ----------------------------- tabs -----------------------------
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('.tab-panel').forEach((p) => p.classList.add('hidden'));
+  $(`tab-${name}`).classList.remove('hidden');
+  if (name === 'bookings') loadBookings();
+  if (name === 'timeoff') loadTimeOff();
+  if (name === 'settings') loadSettings();
+}
+
+// ----------------------------- bookings -----------------------------
+async function loadBookings() {
+  showSpinner(true);
+  try {
+    const { bookings } = await (await authFetch('/api/admin/bookings')).json();
+    const tbody = $('bookings-table').querySelector('tbody');
+    $('bookings-empty').classList.toggle('hidden', bookings.length > 0);
+    tbody.innerHTML = bookings.map((b) => `
+      <tr class="clickable" data-id="${b.id}">
+        <td>#${b.id}</td>
+        <td>${b.checkIn}</td>
+        <td>${b.checkOut}</td>
+        <td>${b.nights}</td>
+        <td>${escapeHtml(b.bookerFirst)} ${escapeHtml(b.bookerLast)}</td>
+        <td>${b.guestCount}</td>
+        <td>${b.boating ? '<span class="tag boat">Gas</span>' : '—'}</td>
+        <td>${money(b.totalPrice)}</td>
+      </tr>`).join('');
+    tbody.querySelectorAll('tr.clickable').forEach((tr) => {
+      tr.onclick = () => openBooking(Number(tr.dataset.id));
+    });
+  } catch (e) { if (e.message !== 'unauthorized') console.error(e); }
+  showSpinner(false);
+}
+
+async function openBooking(id) {
+  showSpinner(true);
+  try {
+    const b = await (await authFetch(`/api/admin/bookings/${id}`)).json();
+    $('modal-title').textContent = `Booking #${b.id}`;
+
+    const mailSubject = encodeURIComponent(`Your booking at the property (#${b.id})`);
+    const mailBody = encodeURIComponent(
+      `Hi ${b.bookerFirst},\n\nRegarding your booking #${b.id} (${b.checkIn} to ${b.checkOut}):\n\n`);
+    const reach = `
+      <div class="row" style="margin:6px 0 18px">
+        <a class="btn sm" href="mailto:${escapeAttr(b.bookerEmail)}?subject=${mailSubject}&body=${mailBody}">Email ${escapeHtml(b.bookerFirst)}</a>
+        <a class="btn sm secondary" href="tel:${escapeAttr(b.bookerPhone)}">Call ${escapeHtml(b.bookerPhone)}</a>
+      </div>`;
+
+    const guestsHtml = b.guests.map((g) => `
+      <div class="guest-card">
+        <div class="guest-head"><h4>${escapeHtml(g.firstName)} ${escapeHtml(g.lastName)} ${g.isBooker ? '(booker)' : ''}</h4>
+          <span class="muted">Age ${g.age}</span></div>
+        <div class="uploads">
+          <div class="upload-box"><span class="muted" style="font-size:0.8rem">Driver's license</span>
+            ${idImg(g.dlData)}</div>
+          <div class="upload-box"><span class="muted" style="font-size:0.8rem">Voter ID</span>
+            ${idImg(g.voterData)}</div>
+        </div>
+      </div>`).join('');
+
+    $('modal-body').innerHTML = `
+      <div class="detail-grid">
+        <div><div class="k">Guest</div><div class="v">${escapeHtml(b.bookerFirst)} ${escapeHtml(b.bookerLast)}</div></div>
+        <div><div class="k">Booked on</div><div class="v">${new Date(b.createdAt).toLocaleString()}</div></div>
+        <div><div class="k">Check-in</div><div class="v">${fmtLong(b.checkIn)}</div></div>
+        <div><div class="k">Check-out</div><div class="v">${fmtLong(b.checkOut)}</div></div>
+        <div><div class="k">Nights</div><div class="v">${b.nights}</div></div>
+        <div><div class="k">Boating / gas</div><div class="v">${b.boating ? 'Yes (+' + money(b.gasFee) + ')' : 'No'}</div></div>
+        <div><div class="k">Email</div><div class="v">${escapeHtml(b.bookerEmail)}</div></div>
+        <div><div class="k">Phone</div><div class="v">${escapeHtml(b.bookerPhone)}</div></div>
+        <div><div class="k">Total price</div><div class="v">${money(b.totalPrice)}</div></div>
+        <div><div class="k">Party size</div><div class="v">${b.guests.length}</div></div>
+      </div>
+      <h3 style="margin:18px 0 4px">Reach out</h3>${reach}
+      <h3 style="margin:18px 0 4px">Guests & IDs</h3>
+      ${guestsHtml}
+      <h3 style="margin:18px 0 4px">Signed agreement</h3>
+      <div class="muted" style="font-size:0.85rem">Signed by <strong>${escapeHtml(b.signedName)}</strong> on ${new Date(b.signedAt).toLocaleString()}</div>
+      <img class="id-img" style="max-width:340px;background:#fff" src="${escapeAttr(b.signatureData)}" alt="signature" />
+      <details style="margin-top:12px"><summary class="muted" style="cursor:pointer">View agreement text</summary>
+        <div class="agreement-text" style="margin-top:8px">${escapeHtml(b.agreementText)}</div></details>
+      <div class="btn-row">
+        <button class="btn danger" id="delete-booking" data-id="${b.id}">Delete booking</button>
+        <button class="btn secondary" id="modal-close-2">Close</button>
+      </div>`;
+
+    $('modal').classList.remove('hidden');
+    $('modal-close-2').onclick = closeModal;
+    $('delete-booking').onclick = () => deleteBooking(b.id);
+  } catch (e) { if (e.message !== 'unauthorized') console.error(e); }
+  showSpinner(false);
+}
+
+function idImg(data) {
+  if (!data) return '<div class="muted" style="font-size:0.82rem">Not provided</div>';
+  if (data.startsWith('data:application/pdf')) {
+    return `<a class="btn sm secondary" style="margin-top:6px" href="${escapeAttr(data)}" target="_blank" rel="noopener">Open PDF</a>`;
+  }
+  return `<a href="${escapeAttr(data)}" target="_blank" rel="noopener"><img class="id-img" src="${escapeAttr(data)}" alt="ID" /></a>`;
+}
+
+async function deleteBooking(id) {
+  if (!confirm('Delete this booking permanently? This frees the dates for others.')) return;
+  showSpinner(true);
+  try {
+    await authFetch(`/api/admin/bookings/${id}`, { method: 'DELETE' });
+    closeModal();
+    await loadBookings();
+  } catch (e) { if (e.message !== 'unauthorized') console.error(e); }
+  showSpinner(false);
+}
+
+function closeModal() { $('modal').classList.add('hidden'); $('modal-body').innerHTML = ''; }
+
+// ----------------------------- time off -----------------------------
+async function loadTimeOff() {
+  showSpinner(true);
+  try {
+    const { timeOff } = await (await authFetch('/api/admin/timeoff')).json();
+    $('timeoff-list').innerHTML = timeOff.length
+      ? timeOff.map((t) => `
+        <div class="guest-card" style="display:flex;justify-content:space-between;align-items:center">
+          <div><strong>${t.startDate}</strong> → <strong>${t.endDate}</strong>
+            ${t.reason ? `<div class="muted" style="font-size:0.85rem">${escapeHtml(t.reason)}</div>` : ''}</div>
+          <button class="btn danger sm" data-off="${t.id}">Remove</button>
+        </div>`).join('')
+      : '<p class="muted">No time-off blocks yet.</p>';
+    $('timeoff-list').querySelectorAll('[data-off]').forEach((btn) => {
+      btn.onclick = () => deleteTimeOff(Number(btn.dataset.off));
+    });
+  } catch (e) { if (e.message !== 'unauthorized') console.error(e); }
+  showSpinner(false);
+}
+
+async function addTimeOff() {
+  const startDate = $('off-start').value;
+  const endDate = $('off-end').value;
+  const reason = $('off-reason').value;
+  const err = $('off-error');
+  if (!startDate || !endDate) {
+    err.textContent = 'Please choose a start and end date.';
+    err.classList.remove('hidden');
+    return;
+  }
+  showSpinner(true);
+  try {
+    const res = await authFetch('/api/admin/timeoff', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ startDate, endDate, reason }),
+    });
+    const data = await res.json();
+    if (!res.ok) { err.textContent = data.error; err.classList.remove('hidden'); showSpinner(false); return; }
+    err.classList.add('hidden');
+    $('off-start').value = ''; $('off-end').value = ''; $('off-reason').value = '';
+    await loadTimeOff();
+  } catch (e) { if (e.message !== 'unauthorized') console.error(e); }
+  showSpinner(false);
+}
+
+async function deleteTimeOff(id) {
+  showSpinner(true);
+  try {
+    await authFetch(`/api/admin/timeoff/${id}`, { method: 'DELETE' });
+    await loadTimeOff();
+  } catch (e) { if (e.message !== 'unauthorized') console.error(e); }
+  showSpinner(false);
+}
+
+// ----------------------------- settings -----------------------------
+const SETTING_KEYS = ['property_name', 'base_price', 'gas_fee', 'max_nights', 'max_guests',
+  'payment_link', 'contact_email', 'contact_phone', 'agreement_text'];
+
+async function loadSettings() {
+  showSpinner(true);
+  try {
+    const s = await (await authFetch('/api/admin/settings')).json();
+    for (const k of SETTING_KEYS) { const el = $(`set-${k}`); if (el) el.value = s[k] ?? ''; }
+  } catch (e) { if (e.message !== 'unauthorized') console.error(e); }
+  showSpinner(false);
+}
+
+async function saveSettings() {
+  const body = {};
+  for (const k of SETTING_KEYS) { const el = $(`set-${k}`); if (el) body[k] = el.value; }
+  showSpinner(true);
+  try {
+    const res = await authFetch('/api/admin/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (res.ok) {
+      const saved = $('settings-saved');
+      saved.classList.remove('hidden');
+      setTimeout(() => saved.classList.add('hidden'), 2500);
+    }
+  } catch (e) { if (e.message !== 'unauthorized') console.error(e); }
+  showSpinner(false);
+}
+
+// ----------------------------- utils + wire -----------------------------
 function escapeHtml(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 function escapeAttr(s) { return escapeHtml(s); }
+
+$('login-btn').onclick = login;
+$('admin-password').addEventListener('keydown', (e) => { if (e.key === 'Enter') login(); });
+$('logout-btn').onclick = logout;
+$('modal-close').onclick = closeModal;
+$('off-add').onclick = addTimeOff;
+$('settings-save').onclick = saveSettings;
+document.querySelectorAll('.tab-btn').forEach((b) => (b.onclick = () => switchTab(b.dataset.tab)));
+
+// auto-resume session if token present
+if (token) {
+  showDash();
+  loadBookings();
+} else {
+  showLogin();
+}
 
 })();
 </script>
