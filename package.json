@@ -1,6 +1,6 @@
 {
   "name": "onboarding-tracker",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Desktop app to track employee onboarding checklists across a team, with per-staff task assignments and a shared local database.",
   "main": "electron/main.js",
   "type": "module",
@@ -12,12 +12,14 @@
     "electron:dev": "concurrently -k \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "start": "npm run electron:dev",
     "dist": "vite build && electron-builder --publish never",
-    "dist:win": "vite build && electron-builder --win --publish never"
+    "dist:win": "vite build && electron-builder --win --publish never",
+    "release:win": "vite build && electron-builder --win --publish always"
   },
   "keywords": ["onboarding", "checklist", "hr", "crm", "electron", "react"],
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "electron-updater": "^6.3.9",
     "jspdf": "^2.5.2",
     "lucide-react": "^0.469.0",
     "react": "^18.3.1",
@@ -38,6 +40,14 @@
     "productName": "Onboarding Tracker",
     "files": ["dist/**/*", "electron/**/*", "package.json"],
     "directories": { "output": "release" },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "oofski",
+        "repo": "marketingdashboard",
+        "releaseType": "release"
+      }
+    ],
     "win": {
       "target": ["nsis"],
       "artifactName": "OnboardingTracker-Setup-${version}.${ext}"

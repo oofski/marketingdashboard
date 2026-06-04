@@ -291,6 +291,18 @@ export const Users = {
     const hash = await hashPassword(password);
     run('UPDATE users SET password_hash = ? WHERE id = ?', [hash, id]);
   },
+  // Self-service password change: verifies the current password first.
+  async changeOwnPassword(id, currentPlain, newPlain) {
+    const record = run('SELECT password_hash FROM users WHERE id = ?', [id])[0];
+    if (!record) return { ok: false, error: 'Account not found.' };
+    const currentHash = await hashPassword(currentPlain);
+    if (currentHash !== record.password_hash) {
+      return { ok: false, error: 'Your current password is incorrect.' };
+    }
+    const newHash = await hashPassword(newPlain);
+    run('UPDATE users SET password_hash = ? WHERE id = ?', [newHash, id]);
+    return { ok: true };
+  },
   remove(id) {
     // Keep historical assignments readable: null them out rather than orphan.
     run('UPDATE tasks SET assignee_id = NULL WHERE assignee_id = ?', [id]);

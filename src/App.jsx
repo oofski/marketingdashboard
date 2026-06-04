@@ -6,6 +6,7 @@ import Dashboard from './components/Dashboard.jsx';
 import EmployeeList from './components/EmployeeList.jsx';
 import EmployeeDetail from './components/EmployeeDetail.jsx';
 import MyTasks from './components/MyTasks.jsx';
+import Account from './components/Account.jsx';
 import Settings from './components/Settings.jsx';
 import UserManagement from './components/UserManagement.jsx';
 import TemplateEditor from './components/TemplateEditor.jsx';
@@ -31,6 +32,7 @@ export default function App() {
         <Route path="/my-tasks" element={<MyTasks />} />
         <Route path="/employees" element={<EmployeeList />} />
         <Route path="/employees/:id" element={<EmployeeDetail />} />
+        <Route path="/account" element={<Account />} />
         {admin && <Route path="/staff" element={<UserManagement />} />}
         {admin && <Route path="/template" element={<TemplateEditor />} />}
         {admin && <Route path="/settings" element={<Settings />} />}

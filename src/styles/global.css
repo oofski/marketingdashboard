@@ -168,6 +168,7 @@ code {
   font-size: 13px;
 }
 .update-banner span { display: inline-flex; align-items: center; gap: 6px; }
+.update-banner.warn { background: rgba(214, 138, 31, 0.12); border-color: rgba(214, 138, 31, 0.35); color: var(--warning); }
 
 /* Cards ------------------------------------------------------------------- */
 .card {
