@@ -19,7 +19,7 @@ export default function Layout({ children }) {
   const version = useAppVersion();
   const { status: appUpdate, installUpdate } = useUpdateStatus();
 
-  const company = S.get('company_name') || 'Neroli';
+  const company = S.get('company_name') || 'EBG';
   const subtitle = S.get('company_subtitle') || 'Onboarding';
 
   // When the shared database file is changed by another computer, prompt a

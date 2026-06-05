@@ -109,7 +109,7 @@ CREATE TABLE IF NOT EXISTS settings (
 `;
 
 const DEFAULT_SETTINGS = {
-  company_name: 'Neroli',
+  company_name: 'EBG',
   company_subtitle: 'Onboarding Tracker',
   company_address: '',
   company_phone: '',
@@ -275,6 +275,18 @@ async function seedDefaults() {
       ['dzayas', hash, 'Diego Linden-Zayas', 'staff']
     );
     run("INSERT OR IGNORE INTO settings (key, value) VALUES ('seed_dzayas_v031', 'done')");
+    changed = true;
+  }
+
+  // One-time rebrand in v0.3.3: the corner name became EBG. Only applied if it
+  // is still the original default, so a custom name set in Settings is kept.
+  const ebgRename = run("SELECT value FROM settings WHERE key = 'rename_ebg_v033'");
+  if (ebgRename.length === 0) {
+    const current = run("SELECT value FROM settings WHERE key = 'company_name'")[0]?.value;
+    if (current === 'Neroli') {
+      run("UPDATE settings SET value = 'EBG' WHERE key = 'company_name'");
+    }
+    run("INSERT OR IGNORE INTO settings (key, value) VALUES ('rename_ebg_v033', 'done')");
     changed = true;
   }
 

@@ -9,7 +9,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const company = S.get('company_name') || 'Neroli';
+  const company = S.get('company_name') || 'EBG';
 
   async function submit(e) {
     e.preventDefault();

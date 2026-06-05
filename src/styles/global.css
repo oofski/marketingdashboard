@@ -1,37 +1,37 @@
 :root {
-  --bg: #f5f7fa;
-  --bg-elev: #ffffff;
-  --bg-elev-2: #fafbfc;
-  --border: #e1e5eb;
-  --border-strong: #c9d0d9;
-  --text: #1d2731;
-  --text-muted: #6a7585;
-  --text-soft: #8a96a6;
-  --accent: #1f6feb;
-  --accent-hover: #1858c4;
-  --accent-soft: #e7f0ff;
+  --bg: #f1ece1;
+  --bg-elev: #fbf9f3;
+  --bg-elev-2: #ece6d8;
+  --border: #ddd5c4;
+  --border-strong: #c8bca4;
+  --text: #262b24;
+  --text-muted: #6c6f60;
+  --text-soft: #8d917f;
+  --accent: #3a5a40;
+  --accent-hover: #2f4a34;
+  --accent-soft: #e4ebe1;
   --success: #1f9d55;
   --success-soft: rgba(31, 157, 85, 0.15);
-  --warning: #d68a1f;
-  --danger: #c93b3b;
-  --shadow: 0 2px 8px rgba(20, 40, 80, 0.06);
-  --shadow-strong: 0 4px 16px rgba(20, 40, 80, 0.1);
+  --warning: #b9802a;
+  --danger: #b2493b;
+  --shadow: 0 2px 8px rgba(60, 50, 30, 0.07);
+  --shadow-strong: 0 4px 16px rgba(60, 50, 30, 0.12);
   --radius: 8px;
   --radius-sm: 4px;
 }
 
 [data-theme='dark'] {
-  --bg: #131820;
-  --bg-elev: #1c2330;
-  --bg-elev-2: #232c3b;
-  --border: #2d3849;
-  --border-strong: #3d4a5e;
-  --text: #e8edf5;
-  --text-muted: #98a3b3;
-  --text-soft: #6e7a8c;
-  --accent: #4b8df8;
-  --accent-hover: #6b9ff9;
-  --accent-soft: #1c2c47;
+  --bg: #171b16;
+  --bg-elev: #1e241d;
+  --bg-elev-2: #272e25;
+  --border: #343c31;
+  --border-strong: #475040;
+  --text: #e9eae1;
+  --text-muted: #9aa08f;
+  --text-soft: #717a66;
+  --accent: #6fa06a;
+  --accent-hover: #84b37e;
+  --accent-soft: #25311f;
   --success-soft: rgba(31, 157, 85, 0.22);
   --shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   --shadow-strong: 0 4px 16px rgba(0, 0, 0, 0.4);
@@ -129,7 +129,7 @@ code {
 }
 .sidebar-brand-icon {
   width: 34px; height: 34px; border-radius: 8px;
-  background: linear-gradient(135deg, var(--accent), #6aa4ff);
+  background: linear-gradient(135deg, var(--accent), #6f8f5a);
   display: flex; align-items: center; justify-content: center;
   color: #fff; font-weight: 800; font-size: 16px;
 }
@@ -165,7 +165,7 @@ code {
 /* Update banner ----------------------------------------------------------- */
 .update-banner {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  background: var(--accent-soft); border: 1px solid rgba(31, 111, 235, 0.3);
+  background: var(--accent-soft); border: 1px solid rgba(58, 90, 64, 0.3);
   color: var(--accent); padding: 8px 14px; border-radius: var(--radius-sm); margin-bottom: 16px;
   font-size: 13px;
 }
@@ -247,7 +247,7 @@ code {
 
 /* Detail banner ----------------------------------------------------------- */
 .detail-banner {
-  background: linear-gradient(135deg, var(--accent), #6aa4ff);
+  background: linear-gradient(135deg, var(--accent), #6f8f5a);
   color: #fff; padding: 20px 22px; border-radius: var(--radius); margin-bottom: 16px;
   display: flex; justify-content: space-between; align-items: flex-start; gap: 20px;
 }
@@ -305,7 +305,7 @@ code {
 .path-value { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; word-break: break-all; margin-top: 2px; }
 
 /* Login ------------------------------------------------------------------- */
-.login-shell { display: grid; place-items: center; height: 100vh; background: linear-gradient(135deg, #1f6feb22, #6aa4ff11); }
+.login-shell { display: grid; place-items: center; height: 100vh; background: linear-gradient(135deg, #dfe7d7, #efe7d6); }
 .login-card { width: 380px; background: var(--bg-elev); padding: 32px; border-radius: 12px; box-shadow: var(--shadow-strong); border: 1px solid var(--border); }
 .login-header { text-align: center; margin-bottom: 24px; }
 .login-brand { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
@@ -321,12 +321,12 @@ code {
 .badge-success { background: var(--success-soft); color: var(--success); border-color: rgba(31, 157, 85, 0.3); }
 .badge-warning { background: rgba(214, 138, 31, 0.15); color: var(--warning); border-color: rgba(214, 138, 31, 0.3); }
 .badge-danger { background: rgba(201, 59, 59, 0.15); color: var(--danger); border-color: rgba(201, 59, 59, 0.3); }
-.badge-accent { background: var(--accent-soft); color: var(--accent); border-color: rgba(31, 111, 235, 0.3); }
+.badge-accent { background: var(--accent-soft); color: var(--accent); border-color: rgba(58, 90, 64, 0.3); }
 
 /* Alerts ------------------------------------------------------------------ */
 .alert { padding: 10px 14px; border-radius: var(--radius-sm); font-size: 13px; }
 .alert-warning { background: rgba(214, 138, 31, 0.12); color: var(--warning); border: 1px solid rgba(214, 138, 31, 0.3); }
-.alert-info { background: var(--accent-soft); color: var(--accent); border: 1px solid rgba(31, 111, 235, 0.3); }
+.alert-info { background: var(--accent-soft); color: var(--accent); border: 1px solid rgba(58, 90, 64, 0.3); }
 
 /* Modal ------------------------------------------------------------------- */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
