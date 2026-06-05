@@ -1,6 +1,6 @@
 {
   "name": "onboarding-tracker",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Desktop app to track employee onboarding checklists across a team, with per-staff task assignments and a shared local database.",
   "main": "electron/main.js",
   "type": "module",
@@ -13,7 +13,10 @@
     "start": "npm run electron:dev",
     "dist": "vite build && electron-builder --publish never",
     "dist:win": "vite build && electron-builder --win --publish never",
-    "release:win": "vite build && electron-builder --win --publish always"
+    "dist:mac": "vite build && electron-builder --mac --publish never",
+    "release": "vite build && electron-builder --publish always",
+    "release:win": "vite build && electron-builder --win --publish always",
+    "release:mac": "vite build && electron-builder --mac --publish always"
   },
   "keywords": ["onboarding", "checklist", "hr", "crm", "electron", "react"],
   "author": "",
@@ -56,6 +59,11 @@
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true
+    },
+    "mac": {
+      "target": [{ "target": "dmg", "arch": "universal" }],
+      "category": "public.app-category.productivity",
+      "artifactName": "OnboardingTracker-Mac-${version}.${ext}"
     }
   }
 }
