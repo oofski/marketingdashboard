@@ -51,10 +51,6 @@ export default function Login() {
             {busy ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
-        <div className="login-hint">
-          Admin first sign-in: <strong>admin</strong> / <strong>admin123</strong>
-          <br />Staff sign in with their own username — see Admin → Staff.
-        </div>
       </div>
     </div>
   );

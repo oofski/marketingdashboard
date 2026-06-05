@@ -161,18 +161,20 @@ export async function initDatabase() {
   const existing = await loadPersisted();
   db = existing ? new SQL.Database(existing) : new SQL.Database();
   db.exec(SCHEMA);
-  await seedDefaults();
-  if (!existing) {
+  const seeded = await seedDefaults();
+  if (!existing || seeded) {
     await forceSave();
   }
   return db;
 }
 
 async function seedDefaults() {
+  let changed = false;
   for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) {
     const existing = run('SELECT value FROM settings WHERE key = ?', [key]);
     if (existing.length === 0) {
       run('INSERT INTO settings (key, value) VALUES (?, ?)', [key, value]);
+      changed = true;
     }
   }
 
@@ -190,12 +192,30 @@ async function seedDefaults() {
         [s.username, staffHash, s.full_name, s.role]
       );
     }
+    changed = true;
   }
 
   const sectionCount = run('SELECT COUNT(*) as c FROM sections')[0]?.c ?? 0;
   if (sectionCount === 0) {
     seedTemplate();
+    changed = true;
   }
+
+  // One-time team account added in v0.3.1. Safe to re-run: INSERT OR IGNORE
+  // avoids errors if the account already exists or two computers race on first
+  // launch, and the flag stops it reappearing if an admin later removes it.
+  const dzayasSeeded = run("SELECT value FROM settings WHERE key = 'seed_dzayas_v031'");
+  if (dzayasSeeded.length === 0) {
+    const hash = await hashPassword(DEFAULT_STAFF_PASSWORD);
+    run(
+      'INSERT OR IGNORE INTO users (username, password_hash, full_name, role) VALUES (?, ?, ?, ?)',
+      ['dzayas', hash, 'Diego Linden-Zayas', 'staff']
+    );
+    run("INSERT OR IGNORE INTO settings (key, value) VALUES ('seed_dzayas_v031', 'done')");
+    changed = true;
+  }
+
+  return changed;
 }
 
 function seedTemplate() {
