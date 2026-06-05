@@ -30,11 +30,16 @@ export default function Layout({ children }) {
       const changed = await hasExternalUpdate();
       if (active && changed) setUpdateAvailable(true);
     }
+    // After the app auto-merges another computer's changes into ours, prompt a
+    // refresh so the on-screen view reflects the combined result.
+    const onMerged = () => { if (active) setUpdateAvailable(true); };
     window.addEventListener('focus', check);
+    window.addEventListener('db-merged', onMerged);
     const interval = setInterval(check, 30000);
     return () => {
       active = false;
       window.removeEventListener('focus', check);
+      window.removeEventListener('db-merged', onMerged);
       clearInterval(interval);
     };
   }, []);
