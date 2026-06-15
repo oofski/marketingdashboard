@@ -23,6 +23,8 @@ export default function EmployeeFormModal({ employee, onClose, onSubmit }) {
     manager_id: employee?.manager_id || '',
     status: employee?.status || 'onboarding',
     notes: employee?.notes || '',
+    build_onboarding: true,
+    notify_team: false,
   });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -63,8 +65,23 @@ export default function EmployeeFormModal({ employee, onClose, onSubmit }) {
         <form onSubmit={submit}>
           {error && <div className="login-error">{error}</div>}
           {!isEdit && (
-            <div className="alert alert-info">
-              The full onboarding checklist will be created automatically from your template.
+            <div className="alert alert-info" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <label className="check-inline" style={{ color: 'inherit' }}>
+                <input
+                  type="checkbox"
+                  checked={form.build_onboarding}
+                  onChange={(e) => set('build_onboarding', e.target.checked)}
+                />
+                Build the onboarding checklist now (turn off if you only need to offboard this person)
+              </label>
+              <label className="check-inline" style={{ color: 'inherit' }}>
+                <input
+                  type="checkbox"
+                  checked={form.notify_team}
+                  onChange={(e) => set('notify_team', e.target.checked)}
+                />
+                Email the team a heads-up after creating
+              </label>
             </div>
           )}
           <div className="field-row">

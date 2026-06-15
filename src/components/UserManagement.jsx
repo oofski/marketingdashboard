@@ -80,6 +80,7 @@ export default function UserManagement() {
             <tr>
               <th>Name</th>
               <th>Username</th>
+              <th>Email</th>
               <th>Role</th>
               <th>Status</th>
               <th style={{ textAlign: 'right' }}>Actions</th>
@@ -90,6 +91,7 @@ export default function UserManagement() {
               <tr key={u.id}>
                 <td><strong>{u.full_name}</strong></td>
                 <td className="text-muted">{u.username}</td>
+                <td className="text-muted">{u.email || '—'}</td>
                 <td><span className="badge badge-accent">{u.role}</span></td>
                 <td>
                   {u.active ? <span className="badge badge-success">Active</span> : <span className="badge">Inactive</span>}
@@ -127,6 +129,7 @@ function UserFormModal({ target, onClose, onSubmit }) {
     id: target?.id,
     username: target?.username || '',
     full_name: target?.full_name || '',
+    email: target?.email || '',
     password: 'welcome123',
     role: target?.role || 'staff',
     active: target ? !!target.active : true,
@@ -175,6 +178,17 @@ function UserFormModal({ target, onClose, onSubmit }) {
               {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
             </select>
             <div className="text-xs text-muted mt-2">{ROLES.find((r) => r.value === form.role)?.hint}</div>
+          </div>
+          <div className="field">
+            <label className="label">Company email</label>
+            <input
+              className="input"
+              type="email"
+              placeholder="name@company.com"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value.trim() })}
+            />
+            <div className="text-xs text-muted mt-2">Used for the “email the team” notifications when someone is onboarded or offboarded.</div>
           </div>
           {isEdit && (
             <label className="check-inline">

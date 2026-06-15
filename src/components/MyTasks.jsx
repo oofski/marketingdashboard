@@ -98,7 +98,12 @@ export default function MyTasks() {
             {g.tasks.map((t) => (
               <div className={'task-row status-row-' + t.status} key={t.id}>
                 <div className="task-main">
-                  <div className="task-title">{t.title}</div>
+                  <div className="task-title">
+                    {t.title}
+                    {t.track === 'offboarding' && (
+                      <span className="badge badge-warning" style={{ marginLeft: 8 }}>Offboarding</span>
+                    )}
+                  </div>
                   <div className="task-sub">{t.section_name}</div>
                 </div>
                 {t.notes ? <div className="task-notes-readonly text-sm text-muted">{t.notes}</div> : <div />}

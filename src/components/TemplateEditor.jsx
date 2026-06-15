@@ -8,11 +8,12 @@ export default function TemplateEditor() {
   const [sections, setSections] = useState([]);
   const [tasksBySection, setTasksBySection] = useState({});
   const [sectionModal, setSectionModal] = useState(null); // null | 'new' | section
+  const [templateType, setTemplateType] = useState('onboarding');
   const assignees = Users.assignable();
 
   function refresh() {
-    const secs = Template.sections();
-    const tasks = Template.tasks();
+    const secs = Template.sections(templateType);
+    const tasks = Template.tasks(templateType);
     const grouped = {};
     for (const s of secs) grouped[s.id] = [];
     for (const t of tasks) (grouped[t.section_id] = grouped[t.section_id] || []).push(t);
@@ -22,7 +23,8 @@ export default function TemplateEditor() {
 
   useEffect(() => {
     refresh();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templateType]);
 
   function audit(action, details) {
     Audit.log({ user_id: user.id, username: user.username, action, entity: 'template', details });
@@ -33,7 +35,7 @@ export default function TemplateEditor() {
       Template.updateSection(data.id, data);
       audit('template_section_update', data.name);
     } else {
-      Template.addSection(data);
+      Template.addSection({ ...data, template_type: templateType });
       audit('template_section_add', data.name);
     }
     setSectionModal(null);
@@ -74,13 +76,32 @@ export default function TemplateEditor() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Checklist Template</h1>
-          <div className="page-subtitle">The master checklist applied to every new employee.</div>
+          <div className="page-subtitle">
+            {templateType === 'offboarding'
+              ? 'The offboarding checklist — applied when an admin starts offboarding for an employee.'
+              : 'The onboarding checklist — applied automatically to every new employee.'}
+          </div>
         </div>
         <div className="page-actions">
           <button className="btn btn-primary" onClick={() => setSectionModal('new')}>
             <Plus size={14} /> Add section
           </button>
         </div>
+      </div>
+
+      <div className="filter-tabs mb-4">
+        <button
+          className={'filter-tab' + (templateType === 'onboarding' ? ' active' : '')}
+          onClick={() => setTemplateType('onboarding')}
+        >
+          Onboarding
+        </button>
+        <button
+          className={'filter-tab' + (templateType === 'offboarding' ? ' active' : '')}
+          onClick={() => setTemplateType('offboarding')}
+        >
+          Offboarding
+        </button>
       </div>
 
       <div className="alert alert-warning mb-4">

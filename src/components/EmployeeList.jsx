@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search } from 'lucide-react';
 import { Employees, Audit } from '../services/db.js';
+import { notifyTeam } from '../services/notify.js';
 import { useAuth, canManageEmployees } from '../contexts/AuthContext.jsx';
 import { startDateLabel, employeeStatusMeta } from '../services/format.js';
 import ProgressBar from './ProgressBar.jsx';
@@ -33,16 +34,21 @@ export default function EmployeeList() {
   }, [search, status]);
 
   async function handleCreate(data) {
-    const id = Employees.create({ ...data, created_by: user.id });
+    const { build_onboarding = true, notify_team = false, ...emp } = data;
+    const id = Employees.create({ ...emp, created_by: user.id }, { buildOnboarding: build_onboarding });
     Audit.log({
       user_id: user.id,
       username: user.username,
       action: 'employee_create',
       entity: 'employee',
       entity_id: id,
-      details: `${data.first_name} ${data.last_name}`,
+      details: `${emp.first_name} ${emp.last_name}`,
     });
     setShowForm(false);
+    if (notify_team) {
+      const res = notifyTeam({ kind: 'onboarding', employee: { ...emp, id } });
+      if (!res.ok) alert(res.reason);
+    }
     navigate(`/employees/${id}`);
   }
 

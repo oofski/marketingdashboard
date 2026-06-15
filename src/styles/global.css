@@ -152,6 +152,7 @@ code {
 .sidebar-user-role { font-size: 11px; color: var(--text-muted); margin-bottom: 8px; text-transform: capitalize; }
 .sidebar-version { margin-top: 10px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 11px; color: var(--text-muted); }
 .sidebar-version .badge { font-size: 10px; padding: 1px 6px; }
+.track-heading { display: flex; align-items: center; gap: 6px; font-size: 16px; font-weight: 700; margin: 22px 0 10px; color: var(--text); }
 .main { overflow-y: auto; padding: 24px 32px; }
 
 .page-header {

@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   useDefaultFolder: () => ipcRenderer.invoke('db:useDefault'),
   exportDoc: (filename, data) => ipcRenderer.invoke('doc:export', { filename, data }),
   appInfo: () => ipcRenderer.invoke('app:info'),
+  openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
   getUpdateStatus: () => ipcRenderer.invoke('update:get'),
   checkForUpdates: () => ipcRenderer.invoke('update:check'),
   installUpdate: () => ipcRenderer.invoke('update:install'),

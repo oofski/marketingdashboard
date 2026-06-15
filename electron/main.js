@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -144,6 +144,15 @@ app.whenReady().then(() => {
     userDataPath: app.getPath('userData'),
     version: app.getVersion(),
   }));
+
+  // Open a mailto: (or web) link in the OS default app — used by the "notify the
+  // team" feature to pop a pre-filled email in Outlook. Restricted to safe schemes.
+  ipcMain.handle('shell:openExternal', (_evt, url) => {
+    if (typeof url === 'string' && /^(mailto:|https?:\/\/)/i.test(url)) {
+      return shell.openExternal(url);
+    }
+    return false;
+  });
 
   // --- Auto-update status, surfaced to the UI -----------------------------
   // The renderer pulls the current status on mount (update:get) and then

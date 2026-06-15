@@ -15,6 +15,7 @@ export const DEFAULT_STAFF = [
   { full_name: 'Meegan Hass', username: 'mhass', role: 'staff' },
   { full_name: 'Hayley Stumbris', username: 'hstumbris', role: 'staff' },
   { full_name: 'Kari Kennedy', username: 'kkennedy', role: 'staff' },
+  { full_name: 'Susan Haise', username: 'shaise', role: 'staff' },
 ];
 
 export const DEFAULT_STAFF_PASSWORD = 'welcome123';
@@ -100,6 +101,47 @@ export const DEFAULT_SECTIONS = [
       { title: 'Add Scheduler Profile', assignee: 'Sandy Nguyen' },
       { title: 'Add Performance Profile', assignee: 'Sandy Nguyen' },
       { title: 'Update ACA Profile', assignee: 'Meegan Hass' },
+    ],
+  },
+];
+
+// The offboarding checklist (transcribed from the company's "Offboarding
+// Checklist" template). Used for the separate Offboarding template; it is only
+// applied to an employee when an admin clicks "Start offboarding".
+export const DEFAULT_OFFBOARDING_SECTIONS = [
+  {
+    name: 'Upon Resignation',
+    tasks: [
+      { title: 'Remove access to Facebook', assignee: 'Hayley Stumbris' },
+      { title: 'Bio removed from website', assignee: 'Hayley Stumbris' },
+      { title: 'Block Outlook/Teams user', assignee: 'Sandy Nguyen' },
+      { title: 'GM Touchdown', assignee: null },
+      { title: 'Close service provider books in Zenoti', assignee: 'Brittany York' },
+      { title: 'Liaison verify no new guests in books', assignee: null },
+      { title: 'No longer signed up for education / verify education for last 12 months', assignee: 'Kali Winter' },
+      { title: "Put on Susan's calendar – service providers, instructors, and biz team", assignee: 'Sandy Nguyen' },
+      { title: 'Process termination w/ Aflac, Nationwide and UHC', assignee: 'Meegan Hass' },
+      { title: 'Exit Information Email', assignee: 'Diego Linden-Zayas' },
+    ],
+  },
+  {
+    name: 'Prior to Last Day',
+    tasks: [
+      { title: 'Turn in keys/assets', assignee: null },
+      { title: 'Exit Interview', assignee: 'Jennifer Garcia' },
+      { title: 'Disable Parking', assignee: 'Meegan Hass' },
+    ],
+  },
+  {
+    name: 'At End of Last Day',
+    tasks: [
+      { title: 'Disable Zenoti', assignee: 'Brittany York' },
+      { title: 'Delete Outlook/Teams user', assignee: 'Sandy Nguyen' },
+      { title: 'Notify VOYA of employment change', assignee: 'Meegan Hass' },
+      { title: 'Remove from station availability spreadsheet', assignee: 'Sandy Nguyen' },
+      { title: 'HR file removed from filing cabinet', assignee: 'Diego Linden-Zayas' },
+      { title: 'Process termination in UKG', assignee: 'Sandy Nguyen' },
+      { title: 'Remove Email Signature', assignee: 'Meegan Hass' },
     ],
   },
 ];

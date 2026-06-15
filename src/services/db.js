@@ -1,6 +1,7 @@
 import sqlWasmUrl from 'sql.js/dist/sql-wasm.wasm?url';
 import {
   DEFAULT_SECTIONS,
+  DEFAULT_OFFBOARDING_SECTIONS,
   DEFAULT_STAFF,
   DEFAULT_STAFF_PASSWORD,
 } from './checklistTemplate.js';
@@ -31,6 +32,7 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash TEXT NOT NULL,
   full_name TEXT NOT NULL,
   role TEXT NOT NULL DEFAULT 'staff',
+  email TEXT,
   active INTEGER DEFAULT 1,
   created_at TEXT DEFAULT (datetime('now'))
 );
@@ -47,6 +49,7 @@ CREATE TABLE IF NOT EXISTS employees (
   phone TEXT,
   manager_id INTEGER,
   status TEXT DEFAULT 'onboarding',
+  final_day TEXT,
   notes TEXT,
   created_by INTEGER,
   created_at TEXT DEFAULT (datetime('now')),
@@ -58,7 +61,8 @@ CREATE TABLE IF NOT EXISTS sections (
   name TEXT NOT NULL,
   description TEXT,
   sort_order INTEGER DEFAULT 0,
-  done_by_employee INTEGER DEFAULT 0
+  done_by_employee INTEGER DEFAULT 0,
+  template_type TEXT DEFAULT 'onboarding'
 );
 
 CREATE TABLE IF NOT EXISTS template_tasks (
@@ -79,6 +83,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   section_name TEXT,
   section_order INTEGER DEFAULT 0,
   done_by_employee INTEGER DEFAULT 0,
+  track TEXT DEFAULT 'onboarding',
   title TEXT NOT NULL,
   assignee_id INTEGER,
   status TEXT DEFAULT 'pending',
@@ -224,11 +229,31 @@ export async function initDatabase() {
   const existing = await loadPersisted();
   db = existing ? new SQL.Database(existing) : new SQL.Database();
   db.exec(SCHEMA);
+  const migrated = runMigrations();
   const seeded = await seedDefaults();
-  if (!existing || seeded) {
+  if (!existing || seeded || migrated) {
     await forceSave();
   }
   return db;
+}
+
+// Adds columns introduced in later versions to databases created by an earlier
+// version (CREATE TABLE IF NOT EXISTS won't alter an existing table). Returns
+// true if anything changed, so the upgrade is persisted to the shared file.
+function runMigrations() {
+  let changed = false;
+  const ensureColumn = (table, column, definition) => {
+    const cols = execSql(`PRAGMA table_info(${table})`);
+    if (!cols.some((c) => c.name === column)) {
+      execSql(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+      changed = true;
+    }
+  };
+  ensureColumn('users', 'email', 'TEXT');
+  ensureColumn('employees', 'final_day', 'TEXT');
+  ensureColumn('sections', 'template_type', "TEXT DEFAULT 'onboarding'");
+  ensureColumn('tasks', 'track', "TEXT DEFAULT 'onboarding'");
+  return changed;
 }
 
 async function seedDefaults() {
@@ -258,9 +283,10 @@ async function seedDefaults() {
     changed = true;
   }
 
-  const sectionCount = run('SELECT COUNT(*) as c FROM sections')[0]?.c ?? 0;
-  if (sectionCount === 0) {
-    seedTemplate();
+  const onboardingSectionCount =
+    run("SELECT COUNT(*) as c FROM sections WHERE template_type = 'onboarding'")[0]?.c ?? 0;
+  if (onboardingSectionCount === 0) {
+    seedTemplate(DEFAULT_SECTIONS, 'onboarding');
     changed = true;
   }
 
@@ -290,18 +316,58 @@ async function seedDefaults() {
     changed = true;
   }
 
+  // Seed the offboarding template once (added in v0.4.0). Guarded by a flag so
+  // an admin's later edits to the offboarding template are never overwritten.
+  const offboardingSeeded = run("SELECT value FROM settings WHERE key = 'seed_offboarding_v040'");
+  if (offboardingSeeded.length === 0) {
+    const offCount = run("SELECT COUNT(*) as c FROM sections WHERE template_type = 'offboarding'")[0]?.c ?? 0;
+    if (offCount === 0) {
+      seedTemplate(DEFAULT_OFFBOARDING_SECTIONS, 'offboarding');
+    }
+    run("INSERT OR IGNORE INTO settings (key, value) VALUES ('seed_offboarding_v040', 'done')");
+    changed = true;
+  }
+
+  // Seed company emails + the Susan Haise account once (added in v0.4.0). Emails
+  // are only filled where blank, so an admin's edits in Staff are never lost.
+  const emailsSeeded = run("SELECT value FROM settings WHERE key = 'seed_emails_v040'");
+  if (emailsSeeded.length === 0) {
+    const staffHash = await hashPassword(DEFAULT_STAFF_PASSWORD);
+    run(
+      'INSERT OR IGNORE INTO users (username, password_hash, full_name, role) VALUES (?, ?, ?, ?)',
+      ['shaise', staffHash, 'Susan Haise', 'staff']
+    );
+    const staffEmails = {
+      ajacobs: 'alyssaj@ibw.edu',
+      byork: 'brittany@edgelessbeauty.com',
+      dzayas: 'diego@edgelessbeauty.com',
+      hstumbris: 'hayley@edgelessbeauty.com',
+      jgarcia: 'Jennifer@edgelessbeauty.com',
+      kwinter: 'kali@edgelessbeauty.com',
+      kkennedy: 'kari@ibw.edu',
+      mhass: 'meegan@edgelessbeauty.com',
+      snguyen: 'sandy@edgelessbeauty.com',
+      shaise: 'susan@edgelessbeauty.com',
+    };
+    for (const [username, email] of Object.entries(staffEmails)) {
+      run("UPDATE users SET email = ? WHERE username = ? AND (email IS NULL OR email = '')", [email, username]);
+    }
+    run("INSERT OR IGNORE INTO settings (key, value) VALUES ('seed_emails_v040', 'done')");
+    changed = true;
+  }
+
   return changed;
 }
 
-function seedTemplate() {
+function seedTemplate(sections, templateType = 'onboarding') {
   const userByName = {};
   for (const u of run('SELECT id, full_name FROM users')) {
     userByName[u.full_name] = u.id;
   }
-  DEFAULT_SECTIONS.forEach((section, sIdx) => {
+  sections.forEach((section, sIdx) => {
     run(
-      'INSERT INTO sections (name, description, sort_order, done_by_employee) VALUES (?, ?, ?, ?)',
-      [section.name, section.description || null, sIdx, section.doneByEmployee ? 1 : 0]
+      'INSERT INTO sections (name, description, sort_order, done_by_employee, template_type) VALUES (?, ?, ?, ?, ?)',
+      [section.name, section.description || null, sIdx, section.doneByEmployee ? 1 : 0, templateType]
     );
     const sectionId = lastInsertId();
     section.tasks.forEach((task, tIdx) => {
@@ -380,8 +446,14 @@ export async function hasExternalUpdate() {
 export const Users = {
   list() {
     return run(
-      'SELECT id, username, full_name, role, active, created_at FROM users ORDER BY full_name'
+      'SELECT id, username, full_name, role, email, active, created_at FROM users ORDER BY full_name'
     );
+  },
+  // Email addresses for everyone who can be notified (active staff with an email).
+  teamEmails() {
+    return run(
+      "SELECT email FROM users WHERE active = 1 AND email IS NOT NULL AND email != '' ORDER BY full_name"
+    ).map((r) => r.email);
   },
   assignable() {
     return run(
@@ -389,24 +461,25 @@ export const Users = {
     );
   },
   get(id) {
-    return run('SELECT id, username, full_name, role, active FROM users WHERE id = ?', [id])[0] ?? null;
+    return run('SELECT id, username, full_name, role, email, active FROM users WHERE id = ?', [id])[0] ?? null;
   },
   findByUsername(username) {
     return run('SELECT * FROM users WHERE username = ?', [username])[0] ?? null;
   },
-  async create({ username, password, full_name, role = 'staff' }) {
+  async create({ username, password, full_name, role = 'staff', email = null }) {
     const hash = await hashPassword(password);
     run(
-      'INSERT INTO users (username, password_hash, full_name, role) VALUES (?, ?, ?, ?)',
-      [username, hash, full_name, role]
+      'INSERT INTO users (username, password_hash, full_name, role, email) VALUES (?, ?, ?, ?, ?)',
+      [username, hash, full_name, role, email || null]
     );
     return lastInsertId();
   },
-  update(id, { full_name, role, active }) {
-    run('UPDATE users SET full_name = ?, role = ?, active = ? WHERE id = ?', [
+  update(id, { full_name, role, active, email }) {
+    run('UPDATE users SET full_name = ?, role = ?, active = ?, email = ? WHERE id = ?', [
       full_name,
       role,
       active ? 1 : 0,
+      email || null,
       id,
     ]);
   },
@@ -434,27 +507,29 @@ export const Users = {
   },
 };
 
-function seedTasksForEmployee(employeeId) {
+function seedTasksForEmployee(employeeId, track = 'onboarding') {
   const rows = run(
     `SELECT s.name AS section_name, s.sort_order AS section_order, s.done_by_employee,
             tt.id AS template_task_id, tt.title, tt.default_assignee_id, tt.sort_order
      FROM template_tasks tt
      JOIN sections s ON s.id = tt.section_id
-     WHERE tt.active = 1
-     ORDER BY s.sort_order, tt.sort_order`
+     WHERE tt.active = 1 AND s.template_type = ?
+     ORDER BY s.sort_order, tt.sort_order`,
+    [track]
   );
   for (const r of rows) {
     run(
       `INSERT INTO tasks
         (employee_id, template_task_id, section_name, section_order, done_by_employee,
-         title, assignee_id, status, sort_order)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
+         track, title, assignee_id, status, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
       [
         employeeId,
         r.template_task_id,
         r.section_name,
         r.section_order,
         r.done_by_employee,
+        track,
         r.title,
         r.default_assignee_id ?? null,
         r.sort_order,
@@ -516,7 +591,7 @@ export const Employees = {
     )[0] ?? {};
     return normalizeProgress(row);
   },
-  create(data) {
+  create(data, { buildOnboarding = true } = {}) {
     let id = null;
     composite(() => {
       run(
@@ -540,9 +615,26 @@ export const Employees = {
         ]
       );
       id = lastInsertId();
-      seedTasksForEmployee(id);
+      if (buildOnboarding) seedTasksForEmployee(id, 'onboarding');
     });
     return id;
+  },
+  hasOffboarding(id) {
+    return (
+      run("SELECT COUNT(*) AS c FROM tasks WHERE employee_id = ? AND track = 'offboarding'", [id])[0]?.c ?? 0
+    ) > 0;
+  },
+  // Builds the offboarding checklist for an existing employee. Never automatic —
+  // an admin triggers it. Re-running just updates the final day, never duplicates.
+  startOffboarding(id, finalDay) {
+    if (this.hasOffboarding(id)) {
+      run("UPDATE employees SET final_day = ?, updated_at = datetime('now') WHERE id = ?", [finalDay || null, id]);
+      return;
+    }
+    composite(() => {
+      run("UPDATE employees SET final_day = ?, updated_at = datetime('now') WHERE id = ?", [finalDay || null, id]);
+      seedTasksForEmployee(id, 'offboarding');
+    });
   },
   update(id, data) {
     run(
@@ -595,21 +687,25 @@ export const Tasks = {
        LEFT JOIN users u ON u.id = t.assignee_id
        LEFT JOIN users c ON c.id = t.completed_by
        WHERE t.employee_id = ?
-       ORDER BY t.section_order, t.sort_order, t.id`,
+       ORDER BY (t.track = 'offboarding'), t.section_order, t.sort_order, t.id`,
       [employeeId]
     );
   },
   forAssignee(userId, { includeCompletedEmployees = false } = {}) {
-    const empFilter = includeCompletedEmployees ? '' : "AND e.status = 'onboarding'";
+    // Offboarding tasks always show (the person may have finished onboarding);
+    // onboarding tasks show only for employees still onboarding, unless asked.
     return run(
-      `SELECT t.*, e.first_name, e.last_name, e.position, e.start_date,
+      `SELECT t.*, e.first_name, e.last_name, e.position, e.start_date, e.final_day,
               e.status AS employee_status
        FROM tasks t
        JOIN employees e ON e.id = t.employee_id
-       WHERE t.assignee_id = ? ${empFilter}
+       WHERE t.assignee_id = ?
+         AND ( ? = 1
+               OR t.track = 'offboarding'
+               OR (t.track = 'onboarding' AND e.status = 'onboarding') )
        ORDER BY (t.status != 'pending'), e.start_date IS NULL, e.start_date ASC,
-                t.section_order, t.sort_order`,
-      [userId]
+                (t.track = 'offboarding'), t.section_order, t.sort_order`,
+      [userId, includeCompletedEmployees ? 1 : 0]
     );
   },
   setStatus(id, status, userId) {
@@ -639,7 +735,8 @@ export const Tasks = {
   openCountForUser(userId) {
     return run(
       `SELECT COUNT(*) AS c FROM tasks t JOIN employees e ON e.id = t.employee_id
-       WHERE t.assignee_id = ? AND t.status = 'pending' AND e.status = 'onboarding'`,
+       WHERE t.assignee_id = ? AND t.status = 'pending'
+         AND ( t.track = 'offboarding' OR e.status = 'onboarding' )`,
       [userId]
     )[0]?.c ?? 0;
   },
@@ -654,23 +751,26 @@ export const Tasks = {
 
 // Master checklist template editing (Admin → Checklist Template).
 export const Template = {
-  sections() {
-    return run('SELECT * FROM sections ORDER BY sort_order, id');
+  sections(type = 'onboarding') {
+    return run('SELECT * FROM sections WHERE template_type = ? ORDER BY sort_order, id', [type]);
   },
-  tasks() {
+  tasks(type = 'onboarding') {
     return run(
       `SELECT tt.*, u.full_name AS default_assignee_name
        FROM template_tasks tt
+       JOIN sections s ON s.id = tt.section_id
        LEFT JOIN users u ON u.id = tt.default_assignee_id
-       WHERE tt.active = 1
-       ORDER BY tt.sort_order, tt.id`
+       WHERE tt.active = 1 AND s.template_type = ?
+       ORDER BY tt.sort_order, tt.id`,
+      [type]
     );
   },
-  addSection({ name, description, done_by_employee }) {
-    const max = run('SELECT MAX(sort_order) AS m FROM sections')[0]?.m ?? -1;
+  addSection({ name, description, done_by_employee, template_type = 'onboarding' }) {
+    const max =
+      run('SELECT MAX(sort_order) AS m FROM sections WHERE template_type = ?', [template_type])[0]?.m ?? -1;
     run(
-      'INSERT INTO sections (name, description, sort_order, done_by_employee) VALUES (?, ?, ?, ?)',
-      [name, description || null, max + 1, done_by_employee ? 1 : 0]
+      'INSERT INTO sections (name, description, sort_order, done_by_employee, template_type) VALUES (?, ?, ?, ?, ?)',
+      [name, description || null, max + 1, done_by_employee ? 1 : 0, template_type]
     );
     return lastInsertId();
   },

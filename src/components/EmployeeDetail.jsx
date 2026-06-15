@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Pencil, Trash2, FileDown, Mail, Phone, MapPin, Calendar, User, Building2,
+  UserMinus, X,
 } from 'lucide-react';
 import {
   Employees, Tasks, Users, Settings as S, Audit, normalizeProgress,
 } from '../services/db.js';
+import { notifyTeam } from '../services/notify.js';
 import { useAuth, canManageEmployees } from '../contexts/AuthContext.jsx';
 import {
   formatDate, startDateLabel, employeeStatusMeta,
@@ -25,6 +27,7 @@ export default function EmployeeDetail() {
   const [employee, setEmployee] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [editing, setEditing] = useState(false);
+  const [offboardModal, setOffboardModal] = useState(false);
   const assignees = useMemo(() => Users.assignable(), []);
 
   function refresh() {
@@ -57,16 +60,21 @@ export default function EmployeeDetail() {
   });
   const meta = employeeStatusMeta(employee.status);
 
-  // Group tasks into their sections, preserving order.
+  // Group tasks into their sections, preserving order (onboarding first, then
+  // offboarding). Keyed by track + name so the two tracks never merge together.
   const sections = [];
-  const byName = {};
+  const byKey = {};
   for (const t of tasks) {
-    if (!byName[t.section_name]) {
-      byName[t.section_name] = { name: t.section_name, done_by_employee: t.done_by_employee, tasks: [] };
-      sections.push(byName[t.section_name]);
+    const track = t.track || 'onboarding';
+    const key = track + '::' + t.section_name;
+    if (!byKey[key]) {
+      byKey[key] = { name: t.section_name, track, done_by_employee: t.done_by_employee, tasks: [] };
+      sections.push(byKey[key]);
     }
-    byName[t.section_name].tasks.push(t);
+    byKey[key].tasks.push(t);
   }
+  const hasOffboardingTasks = sections.some((s) => s.track === 'offboarding');
+  const bothTracks = hasOffboardingTasks && sections.some((s) => s.track === 'onboarding');
 
   function setStatus(task, status) {
     Tasks.setStatus(task.id, status, user.id);
@@ -114,6 +122,30 @@ export default function EmployeeDetail() {
     refresh();
   }
 
+  function emailTeam() {
+    const kind = employee.final_day || hasOffboardingTasks ? 'offboarding' : 'onboarding';
+    const res = notifyTeam({ kind, employee });
+    if (!res.ok) alert(res.reason);
+  }
+
+  function handleStartOffboarding({ final_day, notify_team }) {
+    Employees.startOffboarding(employeeId, final_day || null);
+    Audit.log({
+      user_id: user.id, username: user.username, action: 'employee_offboarding_start',
+      entity: 'employee', entity_id: employeeId,
+      details: `${employee.first_name} ${employee.last_name}`,
+    });
+    setOffboardModal(false);
+    refresh();
+    if (notify_team) {
+      const res = notifyTeam({
+        kind: 'offboarding',
+        employee: { ...employee, final_day: final_day || employee.final_day },
+      });
+      if (!res.ok) alert(res.reason);
+    }
+  }
+
   async function exportPdf() {
     const company = S.all();
     const doc = generateChecklistPdf({ company, employee, tasks, progress });
@@ -159,6 +191,9 @@ export default function EmployeeDetail() {
             </button>
             {canManage && (
               <>
+                <button className="btn btn-sm" onClick={emailTeam} title="Email the team about this employee">
+                  <Mail size={13} /> Email team
+                </button>
                 <button className="btn btn-sm" onClick={() => setEditing(true)}><Pencil size={13} /> Edit</button>
                 <button className="btn btn-sm btn-danger" onClick={handleDelete}><Trash2 size={13} /></button>
               </>
@@ -182,45 +217,70 @@ export default function EmployeeDetail() {
         </div>
       )}
 
+      {canManage && (
+        <div className="status-switch mb-4">
+          {hasOffboardingTasks ? (
+            <span className="badge badge-warning">
+              <UserMinus size={12} /> Offboarding{employee.final_day ? ` · final day ${formatDate(employee.final_day)}` : ''}
+            </span>
+          ) : (
+            <button className="btn btn-sm" onClick={() => setOffboardModal(true)}>
+              <UserMinus size={14} /> Start offboarding
+            </button>
+          )}
+        </div>
+      )}
+
       {employee.notes && (
         <div className="alert alert-info mb-4" style={{ whiteSpace: 'pre-wrap' }}>
           <strong>Notes:</strong> {employee.notes}
         </div>
       )}
 
-      {sections.map((section) => {
+      {sections.map((section, idx) => {
         const sp = normalizeProgress({
           task_total: section.tasks.length,
           task_done: section.tasks.filter((t) => t.status === 'done').length,
           task_na: section.tasks.filter((t) => t.status === 'na').length,
         });
+        const prevTrack = idx > 0 ? sections[idx - 1].track : null;
+        const showHeading = bothTracks && section.track !== prevTrack;
         return (
-          <div className="card" key={section.name}>
-            <div className="section-head">
-              <div>
-                <h3 className="card-title">
-                  {section.name}
-                  {section.done_by_employee ? (
-                    <span className="badge" style={{ marginLeft: 8 }}><Building2 size={11} /> Done by employee</span>
-                  ) : null}
-                </h3>
-                <div className="text-xs text-muted">{sp.done}/{sp.applicable} complete</div>
+          <div key={section.track + '::' + section.name}>
+            {showHeading && (
+              <h2 className="track-heading">
+                {section.track === 'offboarding'
+                  ? <><UserMinus size={16} /> Offboarding</>
+                  : <><User size={16} /> Onboarding</>}
+              </h2>
+            )}
+            <div className="card">
+              <div className="section-head">
+                <div>
+                  <h3 className="card-title">
+                    {section.name}
+                    {section.done_by_employee ? (
+                      <span className="badge" style={{ marginLeft: 8 }}><Building2 size={11} /> Done by employee</span>
+                    ) : null}
+                  </h3>
+                  <div className="text-xs text-muted">{sp.done}/{sp.applicable} complete</div>
+                </div>
+                <div style={{ width: 120 }}><ProgressBar percent={sp.percent} /></div>
               </div>
-              <div style={{ width: 120 }}><ProgressBar percent={sp.percent} /></div>
-            </div>
 
-            <div className="task-table">
-              {section.tasks.map((task) => (
-                <TaskRow
-                  key={task.id}
-                  task={task}
-                  assignees={assignees}
-                  canReassign={canManage && !section.done_by_employee}
-                  onStatus={(s) => setStatus(task, s)}
-                  onAssignee={(a) => setAssignee(task, a)}
-                  onNotes={(n) => setNotes(task, n)}
-                />
-              ))}
+              <div className="task-table">
+                {section.tasks.map((task) => (
+                  <TaskRow
+                    key={task.id}
+                    task={task}
+                    assignees={assignees}
+                    canReassign={canManage && !section.done_by_employee}
+                    onStatus={(s) => setStatus(task, s)}
+                    onAssignee={(a) => setAssignee(task, a)}
+                    onNotes={(n) => setNotes(task, n)}
+                  />
+                ))}
+              </div>
             </div>
           </div>
         );
@@ -229,6 +289,54 @@ export default function EmployeeDetail() {
       {editing && (
         <EmployeeFormModal employee={employee} onClose={() => setEditing(false)} onSubmit={handleEdit} />
       )}
+      {offboardModal && (
+        <OffboardingModal
+          employee={employee}
+          onClose={() => setOffboardModal(false)}
+          onSubmit={handleStartOffboarding}
+        />
+      )}
+    </div>
+  );
+}
+
+function OffboardingModal({ employee, onClose, onSubmit }) {
+  const [finalDay, setFinalDay] = useState(employee.final_day || '');
+  const [notify, setNotify] = useState(false);
+
+  function submit(e) {
+    e.preventDefault();
+    onSubmit({ final_day: finalDay, notify_team: notify });
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2 className="modal-title">Start offboarding — {employee.first_name} {employee.last_name}</h2>
+          <button className="btn btn-ghost" onClick={onClose}><X size={16} /></button>
+        </div>
+        <form onSubmit={submit}>
+          <div className="alert alert-info">
+            This builds the offboarding checklist from your Offboarding template and assigns its tasks.
+            It won't change any onboarding tasks.
+          </div>
+          <div className="field">
+            <label className="label">Final day</label>
+            <input type="date" className="input" value={finalDay} onChange={(e) => setFinalDay(e.target.value)} autoFocus />
+          </div>
+          <label className="check-inline">
+            <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} />
+            Email the team a heads-up
+          </label>
+          <div className="modal-footer">
+            <button type="button" className="btn" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary">
+              <UserMinus size={14} /> Start offboarding
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
