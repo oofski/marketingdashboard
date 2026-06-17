@@ -1,0 +1,12 @@
+# EBG Onboarding Tracker — Cloudflare Worker config.
+# After you create your D1 database, paste its ID into database_id below.
+name = "ebg-onboarding-api"
+main = "src/index.js"
+compatibility_date = "2026-01-01"
+
+# The D1 (SQLite) database this Worker talks to. The app NEVER sees these
+# credentials — only the deployed Worker can reach the database.
+[[d1_databases]]
+binding = "DB"
+database_name = "ebg-onboarding"
+database_id = "PASTE_YOUR_D1_DATABASE_ID_HERE"
