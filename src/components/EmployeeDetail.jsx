@@ -182,7 +182,6 @@ export default function EmployeeDetail() {
           </div>
           <div className="detail-chips">
             <span className="detail-chip"><Calendar size={12} /> {startDateLabel(employee.start_date)}</span>
-            {employee.business && <span className="detail-chip"><Building2 size={12} /> {employee.business}</span>}
             {employee.location && <span className="detail-chip"><MapPin size={12} /> {employee.location}</span>}
             {employee.manager_name && <span className="detail-chip"><User size={12} /> Owner: {employee.manager_name}</span>}
             {employee.email && <span className="detail-chip"><Mail size={12} /> {employee.email}</span>}

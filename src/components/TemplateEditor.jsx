@@ -104,10 +104,9 @@ export default function TemplateEditor() {
         </button>
       </div>
 
-      <div className="alert alert-info mb-4">
-        Adding or removing a task here now also updates everyone who is <strong>currently</strong> on/offboarding —
-        the task is added to (or removed from) their live checklist right away. People who have already finished keep
-        their checklist as-is. Renaming a section or changing its business only affects people added afterward.
+      <div className="alert alert-warning mb-4">
+        Editing the template only affects employees added <strong>after</strong> the change. People already in the
+        system keep the checklist they were created with.
       </div>
 
       {sections.map((s) => (
@@ -116,7 +115,6 @@ export default function TemplateEditor() {
             <div>
               <h3 className="card-title">
                 {s.name}
-                {s.business ? <span className="badge badge-warning" style={{ marginLeft: 8 }}>{s.business} only</span> : null}
                 {s.done_by_employee ? <span className="badge" style={{ marginLeft: 8 }}>Done by employee</span> : null}
               </h3>
               {s.description && <div className="text-xs text-muted">{s.description}</div>}
@@ -192,7 +190,6 @@ function SectionModal({ target, onClose, onSubmit }) {
     name: target?.name || '',
     description: target?.description || '',
     done_by_employee: target ? !!target.done_by_employee : false,
-    business: target?.business || '',
   });
   const [error, setError] = useState('');
 
@@ -221,18 +218,6 @@ function SectionModal({ target, onClose, onSubmit }) {
           <div className="field">
             <label className="label">Description (optional)</label>
             <input className="input" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-          </div>
-          <div className="field">
-            <label className="label">Applies to business</label>
-            <select className="select" value={form.business} onChange={(e) => setForm({ ...form, business: e.target.value })}>
-              <option value="">Any business (everyone)</option>
-              {['IBW', 'Neroli', 'SKNBar', 'Nala'].map((b) => (
-                <option key={b} value={b}>{b} only</option>
-              ))}
-            </select>
-            <div className="text-xs text-muted" style={{ marginTop: 4 }}>
-              Pick a business to build this section only for employees in that business. “Any business” builds it for everyone.
-            </div>
           </div>
           <label className="check-inline">
             <input

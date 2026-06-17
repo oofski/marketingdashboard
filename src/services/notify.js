@@ -64,11 +64,9 @@ export function remindEveryone() {
   return { ok: true, count: emails.length };
 }
 
-// Emails the list of open tasks for one employee's on/offboarding. Pass
-// `recipients` (an array of email addresses) to send to specific staff;
-// omit it (or pass an empty list) to fall back to the whole team.
-export function emailEmployeeTasks(employee, tasks, recipients = null) {
-  const emails = recipients && recipients.length ? recipients : Users.teamEmails();
+// Emails the team the list of open tasks for one employee's on/offboarding.
+export function emailEmployeeTasks(employee, tasks) {
+  const emails = Users.teamEmails();
   if (emails.length === 0) return NO_EMAILS;
   const name = `${employee.first_name} ${employee.last_name}`.trim();
   const pending = (tasks || []).filter((t) => t.status === 'pending');
