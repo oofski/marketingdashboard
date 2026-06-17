@@ -2,6 +2,7 @@ import sqlWasmUrl from 'sql.js/dist/sql-wasm.wasm?url';
 import {
   apiQuery, apiLogin, apiChangePassword, apiCreateUser, apiResetPassword, setToken,
 } from './api.js';
+import { SECTION_LIBRARY as DEFAULT_BLOCKS } from './sectionLibrary.js';
 
 // Cloud-backed data layer.
 //
@@ -486,6 +487,44 @@ export const Settings = {
     if (exists) await apiExec('UPDATE settings SET value = ? WHERE key = ?', [value, key]);
     else await apiExec('INSERT INTO settings (key, value) VALUES (?, ?)', [key, value]);
     await reloadMirror();
+  },
+};
+
+// --- Pre-built section "blocks" library -------------------------------------
+// Admin-managed library of ready-made checklist sections. Stored as one JSON
+// blob in the existing `settings` table (key 'section_library'), so it's shared
+// across all computers and needs NO database schema change. Until an admin
+// saves anything, we fall back to the built-in default seed (sectionLibrary.js).
+const LIBRARY_KEY = 'section_library';
+
+function readBlocks() {
+  const raw = run('SELECT value FROM settings WHERE key = ?', [LIBRARY_KEY])[0]?.value;
+  if (raw) {
+    try {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) return arr;
+    } catch { /* corrupt value — fall back to the seed below */ }
+  }
+  return DEFAULT_BLOCKS;
+}
+
+export const BlockLibrary = {
+  all() {
+    return readBlocks();
+  },
+  async saveAll(blocks) {
+    await Settings.set(LIBRARY_KEY, JSON.stringify(blocks));
+  },
+  async add(block) {
+    const withId = { ...block, id: block.id || `blk_${Date.now()}` };
+    await this.saveAll([...readBlocks(), withId]);
+    return withId.id;
+  },
+  async update(id, patch) {
+    await this.saveAll(readBlocks().map((b) => (b.id === id ? { ...b, ...patch, id } : b)));
+  },
+  async remove(id) {
+    await this.saveAll(readBlocks().filter((b) => b.id !== id));
   },
 };
 

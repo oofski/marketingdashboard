@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Plus, Trash2, Pencil, X, GripVertical, LayoutGrid, Check } from 'lucide-react';
-import { Template, Users, Audit } from '../services/db.js';
-import { SECTION_LIBRARY, libraryCompanies } from '../services/sectionLibrary.js';
+import { Template, Users, Audit, BlockLibrary } from '../services/db.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
 
 export default function TemplateEditor() {
@@ -10,6 +9,8 @@ export default function TemplateEditor() {
   const [tasksBySection, setTasksBySection] = useState({});
   const [sectionModal, setSectionModal] = useState(null); // null | 'new' | section
   const [showLibrary, setShowLibrary] = useState(false);
+  const [blockEditor, setBlockEditor] = useState(null); // null | 'new' | block
+  const [blocks, setBlocks] = useState([]);
   const [templateType, setTemplateType] = useState('onboarding');
   const assignees = Users.assignable();
 
@@ -23,10 +24,18 @@ export default function TemplateEditor() {
     setTasksBySection(grouped);
   }
 
+  function loadBlocks() {
+    setBlocks(BlockLibrary.all());
+  }
+
   useEffect(() => {
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [templateType]);
+
+  useEffect(() => {
+    loadBlocks();
+  }, []);
 
   function audit(action, details) {
     Audit.log({ user_id: user.id, username: user.username, action, entity: 'template', details });
@@ -89,6 +98,29 @@ export default function TemplateEditor() {
     }
     audit('template_block_add', `${block.company}: ${block.name}`);
     refresh();
+  }
+
+  // Create or update a block in the shared library (stored in the cloud).
+  async function saveBlock(data) {
+    if (data.id) {
+      await BlockLibrary.update(data.id, data);
+      audit('block_update', `${data.company}: ${data.name}`);
+    } else {
+      await BlockLibrary.add(data);
+      audit('block_create', `${data.company}: ${data.name}`);
+    }
+    setBlockEditor(null);
+    loadBlocks();
+  }
+
+  async function deleteBlock(block) {
+    if (!confirm(
+      `Delete the pre-built block “${block.name}”? This only removes it from the library — `
+      + `any template you already added it to stays exactly as it is.`
+    )) return;
+    await BlockLibrary.remove(block.id);
+    audit('block_delete', `${block.company}: ${block.name}`);
+    loadBlocks();
   }
 
   return (
@@ -185,22 +217,38 @@ export default function TemplateEditor() {
       {showLibrary && (
         <BlockLibraryModal
           templateType={templateType}
+          blocks={blocks}
           existingNames={sections.map((s) => (s.name || '').toLowerCase())}
           onClose={() => setShowLibrary(false)}
           onAdd={addBlock}
+          onNew={() => setBlockEditor('new')}
+          onEdit={(b) => setBlockEditor(b)}
+          onDelete={deleteBlock}
+        />
+      )}
+
+      {blockEditor && (
+        <BlockEditorModal
+          target={blockEditor === 'new' ? null : blockEditor}
+          defaultType={templateType}
+          assignees={assignees}
+          onClose={() => setBlockEditor(null)}
+          onSave={saveBlock}
         />
       )}
     </div>
   );
 }
 
-// A picker of pre-built sections ("building blocks"), grouped by company and
-// filtered to the template (onboarding/offboarding) currently being edited.
-// Stays open after adding so several blocks can be dropped in at once.
-function BlockLibraryModal({ templateType, existingNames, onClose, onAdd }) {
+// A picker + manager of pre-built sections ("building blocks"), grouped by
+// company and filtered to the template (onboarding/offboarding) being edited.
+// Admins can Add a block to the template, or create/edit/delete blocks in the
+// shared library. Stays open after adding so several can be dropped in at once.
+function BlockLibraryModal({ templateType, blocks, existingNames, onClose, onAdd, onNew, onEdit, onDelete }) {
   const [busyId, setBusyId] = useState(null);
-  const blocks = SECTION_LIBRARY.filter((b) => b.template_type === templateType);
-  const companies = libraryCompanies().filter((c) => blocks.some((b) => b.company === c));
+  const forType = blocks.filter((b) => b.template_type === templateType);
+  const companies = [];
+  for (const b of forType) if (!companies.includes(b.company)) companies.push(b.company);
 
   async function handleAdd(block) {
     setBusyId(block.id);
@@ -219,19 +267,25 @@ function BlockLibraryModal({ templateType, existingNames, onClose, onAdd }) {
           <button className="btn btn-ghost" onClick={onClose}><X size={16} /></button>
         </div>
         <div className="card-subtitle mb-4">
-          Click <strong>Add</strong> to drop a ready-made section and its tasks into your{' '}
-          {templateType} template. You can edit or remove anything afterwards like a normal section.
+          Ready-made sections you can drop into your {templateType} template with one click. Create your own with
+          <strong> New block</strong> — they’re saved for the whole team.
         </div>
 
-        {blocks.length === 0 ? (
+        <div className="mb-4">
+          <button className="btn btn-primary btn-sm" onClick={onNew}>
+            <Plus size={13} /> New block
+          </button>
+        </div>
+
+        {forType.length === 0 ? (
           <div className="empty-state">
-            No pre-built {templateType} sections yet. Tell us the section and its tasks and we'll add it here.
+            No pre-built {templateType} sections yet. Click <strong>New block</strong> to create one.
           </div>
         ) : (
           companies.map((company) => (
             <div key={company} style={{ marginBottom: 14 }}>
               <div className="label" style={{ marginBottom: 6 }}>{company}</div>
-              {blocks.filter((b) => b.company === company).map((b) => {
+              {forType.filter((b) => b.company === company).map((b) => {
                 const already = existingNames.includes((b.name || '').toLowerCase());
                 return (
                   <div className="card" key={b.id} style={{ marginBottom: 8 }}>
@@ -244,13 +298,17 @@ function BlockLibraryModal({ templateType, existingNames, onClose, onAdd }) {
                           {b.assignee ? ` · assigned to ${b.assignee}` : ''}: {b.tasks.map((t) => t.title).join(', ')}
                         </div>
                       </div>
-                      <button
-                        className="btn btn-sm btn-primary"
-                        disabled={already || busyId === b.id}
-                        onClick={() => handleAdd(b)}
-                      >
-                        {already ? <><Check size={12} /> Added</> : busyId === b.id ? 'Adding…' : <><Plus size={12} /> Add</>}
-                      </button>
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+                        <button
+                          className="btn btn-sm btn-primary"
+                          disabled={already || busyId === b.id}
+                          onClick={() => handleAdd(b)}
+                        >
+                          {already ? <><Check size={12} /> Added</> : busyId === b.id ? 'Adding…' : <><Plus size={12} /> Add</>}
+                        </button>
+                        <button className="btn btn-sm" title="Edit block" onClick={() => onEdit(b)}><Pencil size={12} /></button>
+                        <button className="btn btn-sm btn-danger" title="Delete block" onClick={() => onDelete(b)}><Trash2 size={12} /></button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -262,6 +320,132 @@ function BlockLibraryModal({ templateType, existingNames, onClose, onAdd }) {
         <div className="modal-footer">
           <button type="button" className="btn" onClick={onClose}>Done</button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Create / edit a single pre-built block: company, which template it belongs to,
+// section name, an optional "assign every task to" person, and the task list.
+function BlockEditorModal({ target, defaultType, assignees, onClose, onSave }) {
+  const isEdit = !!target;
+  const [form, setForm] = useState({
+    company: target?.company || '',
+    template_type: target?.template_type || defaultType,
+    name: target?.name || '',
+    description: target?.description || '',
+    done_by_employee: target ? !!target.done_by_employee : false,
+    assignee: target?.assignee || '',
+    tasks: target?.tasks ? target.tasks.map((t) => t.title) : [],
+  });
+  const [newTask, setNewTask] = useState('');
+  const [error, setError] = useState('');
+
+  function addTaskLine() {
+    const t = newTask.trim();
+    if (!t) return;
+    setForm((f) => ({ ...f, tasks: [...f.tasks, t] }));
+    setNewTask('');
+  }
+  function updateTaskLine(idx, value) {
+    setForm((f) => ({ ...f, tasks: f.tasks.map((t, i) => (i === idx ? value : t)) }));
+  }
+  function removeTaskLine(idx) {
+    setForm((f) => ({ ...f, tasks: f.tasks.filter((_, i) => i !== idx) }));
+  }
+
+  function submit(e) {
+    e.preventDefault();
+    const tasks = form.tasks.map((t) => t.trim()).filter(Boolean);
+    if (!form.company.trim()) { setError('Company / group is required.'); return; }
+    if (!form.name.trim()) { setError('Section name is required.'); return; }
+    if (tasks.length === 0) { setError('Add at least one task.'); return; }
+    onSave({
+      ...(target?.id ? { id: target.id } : {}),
+      company: form.company.trim(),
+      template_type: form.template_type,
+      name: form.name.trim(),
+      description: form.description.trim(),
+      done_by_employee: form.done_by_employee,
+      assignee: form.assignee,
+      tasks: tasks.map((title) => ({ title })),
+    });
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2 className="modal-title">{isEdit ? 'Edit block' : 'New block'}</h2>
+          <button className="btn btn-ghost" onClick={onClose}><X size={16} /></button>
+        </div>
+        <form onSubmit={submit}>
+          {error && <div className="login-error">{error}</div>}
+          <div className="field-row">
+            <div className="field">
+              <label className="label">Company / group</label>
+              <input className="input" value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} placeholder="e.g. IBW" autoFocus />
+            </div>
+            <div className="field">
+              <label className="label">Template</label>
+              <select className="select" value={form.template_type} onChange={(e) => setForm({ ...form, template_type: e.target.value })}>
+                <option value="onboarding">Onboarding</option>
+                <option value="offboarding">Offboarding</option>
+              </select>
+            </div>
+          </div>
+          <div className="field">
+            <label className="label">Section name</label>
+            <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Institute Only" />
+          </div>
+          <div className="field">
+            <label className="label">Description (optional)</label>
+            <input className="input" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          </div>
+          <div className="field">
+            <label className="label">Assign every task to (optional)</label>
+            <select className="select" value={form.assignee} onChange={(e) => setForm({ ...form, assignee: e.target.value })}>
+              <option value="">— Unassigned —</option>
+              {assignees.map((a) => <option key={a.id} value={a.full_name}>{a.full_name}</option>)}
+            </select>
+          </div>
+          <label className="check-inline">
+            <input
+              type="checkbox"
+              checked={form.done_by_employee}
+              onChange={(e) => setForm({ ...form, done_by_employee: e.target.checked })}
+            />
+            Tasks in this section are completed by the employee themselves
+          </label>
+
+          <div className="field" style={{ marginTop: 12 }}>
+            <label className="label">Tasks</label>
+            {form.tasks.length === 0 && <div className="text-xs text-muted mb-2">No tasks yet — add them below.</div>}
+            {form.tasks.map((t, idx) => (
+              <div className="template-task-row" key={idx}>
+                <GripVertical size={14} className="text-muted" />
+                <input className="input input-sm" value={t} onChange={(e) => updateTaskLine(idx, e.target.value)} />
+                <button type="button" className="btn btn-sm btn-ghost" onClick={() => removeTaskLine(idx)}><Trash2 size={12} /></button>
+              </div>
+            ))}
+            <div className="template-task-row add-task-row">
+              <Plus size={14} className="text-muted" />
+              <input
+                className="input input-sm"
+                placeholder="Add a task…"
+                value={newTask}
+                onChange={(e) => setNewTask(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTaskLine(); } }}
+              />
+              <button type="button" className="btn btn-sm" onClick={addTaskLine} disabled={!newTask.trim()}>Add</button>
+            </div>
+          </div>
+
+          <div className="modal-footer">
+            <button type="button" className="btn" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary">{isEdit ? 'Save block' : 'Create block'}</button>
+          </div>
+        </form>
       </div>
     </div>
   );
