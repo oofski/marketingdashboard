@@ -79,7 +79,10 @@ export function clearMirror() {
 
 // Synchronous read against the local mirror (used by every query helper below).
 function run(sql, params = []) {
-  if (!db) throw new Error('Data not loaded yet');
+  // Before sign-in the mirror isn't loaded yet, so reads (e.g. the login
+  // screen's company name) return empty instead of throwing — otherwise the
+  // login screen would crash to a blank window.
+  if (!db) return [];
   const stmt = db.prepare(sql);
   try {
     stmt.bind(params);
