@@ -5,8 +5,9 @@ import { useUpdateStatus } from '../services/updates.js';
 
 export default function Login() {
   const { login } = useAuth();
-  const [username, setUsername] = useState('');
+  const [username, setUsername] = useState(() => localStorage.getItem('ebg_remember_username') || '');
   const [password, setPassword] = useState('');
+  const [remember, setRemember] = useState(() => !!localStorage.getItem('ebg_remember_username'));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -19,7 +20,12 @@ export default function Login() {
     setBusy(true);
     const result = await login(username, password);
     setBusy(false);
-    if (!result.ok) setError(result.error);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    if (remember) localStorage.setItem('ebg_remember_username', username.trim());
+    else localStorage.removeItem('ebg_remember_username');
   }
 
   return (
@@ -49,6 +55,10 @@ export default function Login() {
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
+          <label className="check-inline" style={{ marginBottom: 12 }}>
+            <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
+            Remember my username
+          </label>
           <button type="submit" className="btn btn-primary w-full" disabled={busy}>
             {busy ? 'Signing in…' : 'Sign in'}
           </button>

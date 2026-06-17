@@ -48,6 +48,7 @@ export default function Dashboard() {
           label="Overdue tasks"
           value={overdue}
           accent={overdue > 0 ? 'danger' : undefined}
+          onClick={() => navigate('/overdue')}
         />
       </div>
 

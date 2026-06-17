@@ -119,7 +119,12 @@ export default function EmployeeList() {
                     <td>{e.position || <span className="text-muted">—</span>}</td>
                     <td>{startDateLabel(e.start_date)}</td>
                     <td>{e.manager_name || <span className="text-muted">—</span>}</td>
-                    <td><span className={'badge ' + meta.badge}>{meta.label}</span></td>
+                    <td>
+                      <span className={'badge ' + meta.badge}>{meta.label}</span>
+                      {e.offboarding_count > 0 && (
+                        <span className="badge badge-warning" style={{ marginLeft: 4 }}>Offboarding</span>
+                      )}
+                    </td>
                     <td>
                       <ProgressBar percent={e.percent} />
                       <div className="text-xs text-muted">

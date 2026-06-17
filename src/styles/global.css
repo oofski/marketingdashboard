@@ -252,6 +252,7 @@ code {
   color: #fff; padding: 20px 22px; border-radius: var(--radius); margin-bottom: 16px;
   display: flex; justify-content: space-between; align-items: flex-start; gap: 20px;
 }
+.detail-banner.offboarding { background: linear-gradient(135deg, #b9802a, #d6a24e); }
 .detail-banner-name { font-size: 22px; font-weight: 700; }
 .detail-banner-meta { font-size: 13px; opacity: 0.92; margin-top: 4px; }
 .detail-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }

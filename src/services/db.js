@@ -19,6 +19,20 @@ async function loadSqlJs() {
 
 let SQL = null;
 let db = null; // in-memory mirror
+let lastSignature = '';
+
+// A cheap "fingerprint" of the data, so we can detect when someone on another
+// computer changed something on the server and prompt a refresh.
+const SIGNATURE_SQL = `SELECT
+  (SELECT COUNT(*) FROM employees) AS ec,
+  (SELECT COALESCE(MAX(updated_at), '') FROM employees) AS em,
+  (SELECT COUNT(*) FROM tasks) AS tc,
+  (SELECT COALESCE(MAX(updated_at), '') FROM tasks) AS tm,
+  (SELECT COUNT(*) FROM users) AS uc`;
+function dataSignature(row) {
+  if (!row) return '';
+  return [row.ec, row.em, row.tc, row.tm, row.uc].join('|');
+}
 
 // Mirror schema (password_hash is nullable here — the server never sends hashes).
 const MIRROR_SCHEMA = `
@@ -69,6 +83,7 @@ export async function reloadMirror() {
   MIRROR_FETCH.forEach(([table], i) => insertRows(fresh, table, results[i].rows));
   if (db) { try { db.free(); } catch { /* ignore */ } }
   db = fresh;
+  try { lastSignature = dataSignature(run(SIGNATURE_SQL)[0]); } catch { /* ignore */ }
 }
 
 export function isLoaded() { return !!db; }
@@ -480,8 +495,15 @@ export function exportDatabase() {
   return db.export();
 }
 
-// Kept as a no-op stub; the cloud version refreshes via reloadMirror instead of
-// watching a shared file. Layout still imports this.
+// True if the server's data changed since we last loaded the mirror — i.e.
+// someone on another computer added/edited/removed something. Drives the
+// "Refresh" prompt so people see others' changes without logging out.
 export async function hasExternalUpdate() {
-  return false;
+  if (!lastSignature) return false;
+  try {
+    const res = await apiQuery(SIGNATURE_SQL);
+    return dataSignature(res.rows[0]) !== lastSignature;
+  } catch {
+    return false;
+  }
 }

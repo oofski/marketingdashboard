@@ -96,6 +96,16 @@ export default function EmployeeDetail() {
     setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, notes } : t)));
   }
 
+  async function deleteTask(task) {
+    if (!confirm(`Delete the task “${task.title}” from this checklist? This cannot be undone.`)) return;
+    await Tasks.remove(task.id);
+    Audit.log({
+      user_id: user.id, username: user.username, action: 'task_delete',
+      entity: 'task', entity_id: task.id, details: task.title,
+    });
+    refresh();
+  }
+
   async function handleEdit(data) {
     await Employees.update(employeeId, data);
     Audit.log({
@@ -158,7 +168,7 @@ export default function EmployeeDetail() {
         <ArrowLeft size={14} /> All employees
       </button>
 
-      <div className="detail-banner">
+      <div className={'detail-banner' + (hasOffboardingTasks ? ' offboarding' : '')}>
         <div>
           <div className="detail-banner-name">
             {employee.first_name} {employee.last_name}
@@ -278,6 +288,7 @@ export default function EmployeeDetail() {
                     onStatus={(s) => setStatus(task, s)}
                     onAssignee={(a) => setAssignee(task, a)}
                     onNotes={(n) => setNotes(task, n)}
+                    onDelete={canManage ? () => deleteTask(task) : null}
                   />
                 ))}
               </div>
@@ -341,7 +352,7 @@ function OffboardingModal({ employee, onClose, onSubmit }) {
   );
 }
 
-function TaskRow({ task, assignees, canReassign, onStatus, onAssignee, onNotes }) {
+function TaskRow({ task, assignees, canReassign, onStatus, onAssignee, onNotes, onDelete }) {
   const [notes, setNotesLocal] = useState(task.notes || '');
 
   useEffect(() => {
@@ -385,6 +396,11 @@ function TaskRow({ task, assignees, canReassign, onStatus, onAssignee, onNotes }
       />
 
       <StatusControl value={task.status} onChange={onStatus} />
+      {onDelete && (
+        <button className="btn btn-sm btn-ghost" onClick={onDelete} title="Delete this task">
+          <Trash2 size={12} />
+        </button>
+      )}
     </div>
   );
 }

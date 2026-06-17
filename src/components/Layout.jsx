@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, CheckSquare, Settings as SettingsIcon,
-  UserCog, ListChecks, KeyRound, LogOut, Moon, Sun, RefreshCw, Download,
+  UserCog, ListChecks, KeyRound, LogOut, Moon, Sun, RefreshCw, Download, Mail,
 } from 'lucide-react';
 import { useAuth, isAdmin } from '../contexts/AuthContext.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
@@ -83,6 +83,9 @@ export default function Layout({ children }) {
             <NavLink to="/staff" className={navClass}>
               <UserCog size={16} /> <span>Staff</span>
             </NavLink>
+            <NavLink to="/notifications" className={navClass}>
+              <Mail size={16} /> <span>Notifications</span>
+            </NavLink>
             <NavLink to="/settings" className={navClass}>
               <SettingsIcon size={16} /> <span>Settings</span>
             </NavLink>
@@ -93,6 +96,9 @@ export default function Layout({ children }) {
           <div className="sidebar-user-name">{user.full_name}</div>
           <div className="sidebar-user-role">{user.role}</div>
           <div style={{ display: 'flex', gap: 6 }}>
+            <button className="btn btn-sm" onClick={() => window.location.reload()} title="Refresh data from the server">
+              <RefreshCw size={14} />
+            </button>
             <button className="btn btn-sm" onClick={toggle} title="Toggle light / dark">
               {theme === 'light' ? <Moon size={14} /> : <Sun size={14} />}
             </button>
