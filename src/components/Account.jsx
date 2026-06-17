@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { KeyRound, Check } from 'lucide-react';
+import { KeyRound, Check, RefreshCw, Download, Info } from 'lucide-react';
 import { Users, Audit } from '../services/db.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import { useUpdateStatus, useAppVersion, describeUpdate } from '../services/updates.js';
 
 export default function Account() {
   const { user } = useAuth();
@@ -11,6 +12,10 @@ export default function Account() {
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
+  const version = useAppVersion();
+  const { status: appUpdate, checkForUpdates, installUpdate } = useUpdateStatus();
+  const updateSummary = describeUpdate(appUpdate, version);
+  const isElectron = typeof window !== 'undefined' && window.electronAPI?.isElectron;
 
   async function submit(e) {
     e.preventDefault();
@@ -73,6 +78,29 @@ export default function Account() {
             {busy ? 'Saving…' : 'Update password'}
           </button>
         </form>
+      </div>
+
+      <div className="card" style={{ maxWidth: 480 }}>
+        <h3 className="card-title"><Info size={15} /> App version &amp; updates</h3>
+        <div className="data-path">
+          <div className="text-xs text-muted">Installed version</div>
+          <div className="path-value">Onboarding Tracker v{version}</div>
+          <div className="text-xs text-muted mt-2">{updateSummary.label}</div>
+        </div>
+        {isElectron ? (
+          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+            <button className="btn" onClick={checkForUpdates}>
+              <RefreshCw size={14} /> Check for updates
+            </button>
+            {appUpdate.state === 'downloaded' && (
+              <button className="btn btn-primary" onClick={installUpdate}>
+                <Download size={14} /> Restart to apply update
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="text-xs text-muted mt-2">Updates apply automatically in the installed app.</div>
+        )}
       </div>
     </div>
   );
