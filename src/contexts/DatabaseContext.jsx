@@ -1,43 +1,13 @@
-import { createContext, useContext, useEffect, useState } from 'react';
-import { initDatabase } from '../services/db.js';
+import { createContext, useContext } from 'react';
 
-const DatabaseContext = createContext({ ready: false, error: null });
+// The app now loads its data from the cloud after sign-in (see AuthContext),
+// so there's no local database to open at startup. This stays as a thin
+// provider so the rest of the app's structure is unchanged.
+const DatabaseContext = createContext({ ready: true });
 
 export function DatabaseProvider({ children }) {
-  const [ready, setReady] = useState(false);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    initDatabase()
-      .then(() => setReady(true))
-      .catch((e) => {
-        console.error('DB init failed', e);
-        setError(e);
-      });
-  }, []);
-
-  if (error) {
-    return (
-      <div style={{ padding: 40, fontFamily: 'sans-serif' }}>
-        <h2>Database error</h2>
-        <p>The onboarding database could not be opened. If you use a shared network
-           folder, make sure the folder is reachable, then reopen the app.</p>
-        <pre>{error.message}</pre>
-      </div>
-    );
-  }
-
-  if (!ready) {
-    return (
-      <div className="boot-screen">
-        <div className="boot-spinner" />
-        <div>Loading onboarding database…</div>
-      </div>
-    );
-  }
-
   return (
-    <DatabaseContext.Provider value={{ ready }}>
+    <DatabaseContext.Provider value={{ ready: true }}>
       {children}
     </DatabaseContext.Provider>
   );

@@ -1,57 +1,53 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { Users, Audit, hashPassword } from '../services/db.js';
+import { login as cloudLogin, reloadMirror, clearMirror, Audit } from '../services/db.js';
+import { setToken, getToken } from '../services/api.js';
 
 const AuthContext = createContext(null);
-
 const SESSION_KEY = 'onboarding_tracker_session';
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loaded, setLoaded] = useState(false);
 
+  // On launch, if we still have a saved session + token, load this session's
+  // data from the server. If the token is expired/invalid, fall back to login.
   useEffect(() => {
-    const stored = sessionStorage.getItem(SESSION_KEY);
-    if (stored) {
-      try {
-        setUser(JSON.parse(stored));
-      } catch {
-        sessionStorage.removeItem(SESSION_KEY);
+    let active = true;
+    (async () => {
+      const stored = sessionStorage.getItem(SESSION_KEY);
+      const token = getToken();
+      if (stored && token) {
+        try {
+          await reloadMirror();
+          if (active) setUser(JSON.parse(stored));
+        } catch {
+          setToken(null);
+          sessionStorage.removeItem(SESSION_KEY);
+        }
       }
-    }
-    setLoaded(true);
+      if (active) setLoaded(true);
+    })();
+    return () => { active = false; };
   }, []);
 
   async function login(username, password) {
-    const record = Users.findByUsername(username.trim());
-    if (!record) {
-      return { ok: false, error: 'Invalid username or password' };
+    try {
+      const u = await cloudLogin(username, password);
+      setUser(u);
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify(u));
+      Audit.log({ user_id: u.id, username: u.username, action: 'login' });
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e.message || 'Invalid username or password' };
     }
-    if (!record.active) {
-      return { ok: false, error: 'This account is deactivated. Ask an admin to re-enable it.' };
-    }
-    const hash = await hashPassword(password);
-    if (hash !== record.password_hash) {
-      Audit.log({ username, action: 'login_failed' });
-      return { ok: false, error: 'Invalid username or password' };
-    }
-    const userObj = {
-      id: record.id,
-      username: record.username,
-      full_name: record.full_name,
-      role: record.role,
-    };
-    setUser(userObj);
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify(userObj));
-    Audit.log({ user_id: userObj.id, username: userObj.username, action: 'login' });
-    return { ok: true };
   }
 
   function logout() {
-    if (user) {
-      Audit.log({ user_id: user.id, username: user.username, action: 'logout' });
-    }
-    setUser(null);
+    if (user) Audit.log({ user_id: user.id, username: user.username, action: 'logout' });
+    clearMirror();
+    setToken(null);
     sessionStorage.removeItem(SESSION_KEY);
+    setUser(null);
   }
 
   return (
@@ -65,7 +61,6 @@ export function useAuth() {
   return useContext(AuthContext);
 }
 
-// Small role helpers shared across the UI.
 export function canManageEmployees(user) {
   return user && (user.role === 'admin' || user.role === 'manager');
 }

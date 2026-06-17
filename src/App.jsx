@@ -13,7 +13,14 @@ import TemplateEditor from './components/TemplateEditor.jsx';
 
 export default function App() {
   const { user, loaded } = useAuth();
-  if (!loaded) return null;
+  if (!loaded) {
+    return (
+      <div className="boot-screen">
+        <div className="boot-spinner" />
+        <div>Connecting…</div>
+      </div>
+    );
+  }
 
   if (!user) {
     return (

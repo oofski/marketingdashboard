@@ -1,10 +1,16 @@
 import sqlWasmUrl from 'sql.js/dist/sql-wasm.wasm?url';
 import {
-  DEFAULT_SECTIONS,
-  DEFAULT_OFFBOARDING_SECTIONS,
-  DEFAULT_STAFF,
-  DEFAULT_STAFF_PASSWORD,
-} from './checklistTemplate.js';
+  apiQuery, apiLogin, apiChangePassword, apiCreateUser, apiResetPassword, setToken,
+} from './api.js';
+
+// Cloud-backed data layer.
+//
+// The single source of truth is the cloud database (Cloudflare Worker + D1).
+// To avoid rewriting every screen, the app keeps a local in-memory SQLite
+// "mirror" hydrated from the server, so all the existing read queries (joins,
+// aggregates) keep working synchronously. Every WRITE goes to the server first,
+// then the mirror is refreshed from the server — so the mirror always reflects
+// authoritative data (including other people's changes) right after any action.
 
 async function loadSqlJs() {
   const mod = await import('sql.js/dist/sql-wasm.js');
@@ -12,381 +18,68 @@ async function loadSqlJs() {
 }
 
 let SQL = null;
-let db = null;
-let saveTimeout = null;
-let lastMtime = null;
-// Conflict-safe save: every mutation is recorded as a replayable operation, so
-// if another computer wrote to the shared file while we were editing we can
-// rebase our changes onto their version instead of overwriting them.
-let pendingOps = [];
-let recording = true;
-let replaying = false;
-let saveChain = Promise.resolve();
+let db = null; // in-memory mirror
 
-const STORAGE_KEY = 'onboarding_tracker_db_v1';
-
-const SCHEMA = `
-CREATE TABLE IF NOT EXISTS users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  username TEXT UNIQUE NOT NULL,
-  password_hash TEXT NOT NULL,
-  full_name TEXT NOT NULL,
-  role TEXT NOT NULL DEFAULT 'staff',
-  email TEXT,
-  active INTEGER DEFAULT 1,
-  created_at TEXT DEFAULT (datetime('now'))
-);
-
-CREATE TABLE IF NOT EXISTS employees (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  first_name TEXT NOT NULL,
-  last_name TEXT NOT NULL,
-  position TEXT,
-  department TEXT,
-  location TEXT,
-  start_date TEXT,
-  email TEXT,
-  phone TEXT,
-  manager_id INTEGER,
-  status TEXT DEFAULT 'onboarding',
-  final_day TEXT,
-  notes TEXT,
-  created_by INTEGER,
-  created_at TEXT DEFAULT (datetime('now')),
-  updated_at TEXT DEFAULT (datetime('now'))
-);
-
-CREATE TABLE IF NOT EXISTS sections (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  description TEXT,
-  sort_order INTEGER DEFAULT 0,
-  done_by_employee INTEGER DEFAULT 0,
-  template_type TEXT DEFAULT 'onboarding'
-);
-
-CREATE TABLE IF NOT EXISTS template_tasks (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  section_id INTEGER NOT NULL,
-  title TEXT NOT NULL,
-  description TEXT,
-  default_assignee_id INTEGER,
-  sort_order INTEGER DEFAULT 0,
-  active INTEGER DEFAULT 1,
-  FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS tasks (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  employee_id INTEGER NOT NULL,
-  template_task_id INTEGER,
-  section_name TEXT,
-  section_order INTEGER DEFAULT 0,
-  done_by_employee INTEGER DEFAULT 0,
-  track TEXT DEFAULT 'onboarding',
-  title TEXT NOT NULL,
-  assignee_id INTEGER,
-  status TEXT DEFAULT 'pending',
-  notes TEXT,
-  sort_order INTEGER DEFAULT 0,
-  completed_at TEXT,
-  completed_by INTEGER,
-  created_at TEXT DEFAULT (datetime('now')),
-  updated_at TEXT DEFAULT (datetime('now')),
-  FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS audit_log (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER,
-  username TEXT,
-  action TEXT NOT NULL,
-  entity TEXT,
-  entity_id INTEGER,
-  details TEXT,
-  created_at TEXT DEFAULT (datetime('now'))
-);
-
-CREATE TABLE IF NOT EXISTS settings (
-  key TEXT PRIMARY KEY,
-  value TEXT
-);
+// Mirror schema (password_hash is nullable here — the server never sends hashes).
+const MIRROR_SCHEMA = `
+CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, password_hash TEXT, full_name TEXT, role TEXT, email TEXT, active INTEGER, created_at TEXT);
+CREATE TABLE employees (id INTEGER PRIMARY KEY, first_name TEXT, last_name TEXT, position TEXT, department TEXT, location TEXT, start_date TEXT, email TEXT, phone TEXT, manager_id INTEGER, status TEXT, final_day TEXT, notes TEXT, created_by INTEGER, created_at TEXT, updated_at TEXT);
+CREATE TABLE sections (id INTEGER PRIMARY KEY, name TEXT, description TEXT, sort_order INTEGER, done_by_employee INTEGER, template_type TEXT);
+CREATE TABLE template_tasks (id INTEGER PRIMARY KEY, section_id INTEGER, title TEXT, description TEXT, default_assignee_id INTEGER, sort_order INTEGER, active INTEGER);
+CREATE TABLE tasks (id INTEGER PRIMARY KEY, employee_id INTEGER, template_task_id INTEGER, section_name TEXT, section_order INTEGER, done_by_employee INTEGER, track TEXT, title TEXT, assignee_id INTEGER, status TEXT, notes TEXT, sort_order INTEGER, completed_at TEXT, completed_by INTEGER, created_at TEXT, updated_at TEXT);
+CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT);
 `;
 
-const DEFAULT_SETTINGS = {
-  company_name: 'EBG',
-  company_subtitle: 'Onboarding Tracker',
-  company_address: '',
-  company_phone: '',
-  company_email: '',
-  theme: 'light',
-};
+// Tables to hydrate into the mirror. Users are fetched WITHOUT password_hash.
+const MIRROR_FETCH = [
+  ['settings', 'SELECT * FROM settings'],
+  ['users', 'SELECT id, username, full_name, role, email, active, created_at FROM users'],
+  ['sections', 'SELECT * FROM sections'],
+  ['template_tasks', 'SELECT * FROM template_tasks'],
+  ['employees', 'SELECT * FROM employees'],
+  ['tasks', 'SELECT * FROM tasks'],
+];
 
-export async function hashPassword(plain) {
-  const enc = new TextEncoder().encode(plain + '::onboarding_salt_v1');
-  const buf = await crypto.subtle.digest('SHA-256', enc);
-  return Array.from(new Uint8Array(buf))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-}
-
-async function loadPersisted() {
-  if (typeof window !== 'undefined' && window.electronAPI?.isElectron) {
-    const data = await window.electronAPI.readDb();
-    lastMtime = (await window.electronAPI.dbStat?.())?.mtimeMs ?? null;
-    return data ? new Uint8Array(data) : null;
-  }
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (!stored) return null;
-  const binStr = atob(stored);
-  const bytes = new Uint8Array(binStr.length);
-  for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
-  return bytes;
-}
-
-async function writePersisted(bytes) {
-  if (typeof window !== 'undefined' && window.electronAPI?.isElectron) {
-    await window.electronAPI.writeDb(bytes);
-    lastMtime = (await window.electronAPI.dbStat?.())?.mtimeMs ?? lastMtime;
-    return;
-  }
-  let binStr = '';
-  for (let i = 0; i < bytes.length; i++) binStr += String.fromCharCode(bytes[i]);
-  localStorage.setItem(STORAGE_KEY, btoa(binStr));
-}
-
-function scheduleSave() {
-  if (replaying) return;
-  if (saveTimeout) clearTimeout(saveTimeout);
-  saveTimeout = setTimeout(() => conflictSafeSave(), 200);
-}
-
-// Serialize saves so two overlapping writes can't race on the shared file.
-function conflictSafeSave() {
-  saveChain = saveChain.then(doMergeAndWrite).catch((e) => console.error('Save failed', e));
-  return saveChain;
-}
-
-async function doMergeAndWrite() {
-  if (!db) return;
-  let merged = false;
-  const isElectron = typeof window !== 'undefined' && window.electronAPI?.isElectron;
-
-  // If the shared file changed since we loaded it, another computer saved while
-  // we were editing. Rebase our pending changes onto their version instead of
-  // overwriting it. Any failure here falls back to a plain write — never a crash.
-  if (isElectron && lastMtime != null && pendingOps.length > 0) {
-    let old = null;
-    try {
-      const stat = await window.electronAPI.dbStat?.();
-      if (stat && stat.mtimeMs != null && stat.mtimeMs > lastMtime + 50) {
-        const freshBytes = await window.electronAPI.readDb();
-        if (freshBytes) {
-          const fresh = new SQL.Database(new Uint8Array(freshBytes));
-          fresh.exec(SCHEMA);
-          old = db;
-          db = fresh;
-          replaying = true;
-          const prevRecording = recording;
-          recording = false;
-          for (const op of pendingOps) {
-            try {
-              if (op.replay) op.replay();
-              else execSql(op.sql, op.params);
-            } catch (e) {
-              console.error('Merge skipped one change', e);
-            }
-          }
-          recording = prevRecording;
-          replaying = false;
-          try { old.free(); } catch { /* ignore */ }
-          merged = true;
-        }
-      }
-    } catch (e) {
-      console.error('Conflict merge failed; writing our version instead', e);
-      replaying = false;
-      if (old) db = old;
+function insertRows(database, table, rows) {
+  if (!rows || rows.length === 0) return;
+  const cols = Object.keys(rows[0]);
+  const stmt = database.prepare(
+    `INSERT INTO ${table} (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`
+  );
+  try {
+    for (const row of rows) {
+      stmt.bind(cols.map((c) => (row[c] === undefined ? null : row[c])));
+      stmt.step();
+      stmt.reset();
     }
-  }
-
-  if (pendingOps.length === 0 && !merged) return;
-  const data = db.export();
-  const persisted = pendingOps.length;
-  await writePersisted(data);
-  pendingOps.splice(0, persisted);
-  if (merged && typeof window !== 'undefined') {
-    window.dispatchEvent(new Event('db-merged'));
+  } finally {
+    stmt.free();
   }
 }
 
-export async function initDatabase() {
-  if (db) return db;
+// Pull the whole dataset from the server and rebuild the local mirror.
+export async function reloadMirror() {
   if (!SQL) {
     const initSqlJs = await loadSqlJs();
     SQL = await initSqlJs({ locateFile: () => sqlWasmUrl });
   }
-  const existing = await loadPersisted();
-  db = existing ? new SQL.Database(existing) : new SQL.Database();
-  db.exec(SCHEMA);
-  const migrated = runMigrations();
-  const seeded = await seedDefaults();
-  if (!existing || seeded || migrated) {
-    await forceSave();
-  }
-  return db;
+  const results = await Promise.all(MIRROR_FETCH.map(([, sql]) => apiQuery(sql)));
+  const fresh = new SQL.Database();
+  fresh.exec(MIRROR_SCHEMA);
+  MIRROR_FETCH.forEach(([table], i) => insertRows(fresh, table, results[i].rows));
+  if (db) { try { db.free(); } catch { /* ignore */ } }
+  db = fresh;
 }
 
-// Adds columns introduced in later versions to databases created by an earlier
-// version (CREATE TABLE IF NOT EXISTS won't alter an existing table). Returns
-// true if anything changed, so the upgrade is persisted to the shared file.
-function runMigrations() {
-  let changed = false;
-  const ensureColumn = (table, column, definition) => {
-    const cols = execSql(`PRAGMA table_info(${table})`);
-    if (!cols.some((c) => c.name === column)) {
-      execSql(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
-      changed = true;
-    }
-  };
-  ensureColumn('users', 'email', 'TEXT');
-  ensureColumn('employees', 'final_day', 'TEXT');
-  ensureColumn('sections', 'template_type', "TEXT DEFAULT 'onboarding'");
-  ensureColumn('tasks', 'track', "TEXT DEFAULT 'onboarding'");
-  return changed;
+export function isLoaded() { return !!db; }
+export function clearMirror() {
+  if (db) { try { db.free(); } catch { /* ignore */ } }
+  db = null;
 }
 
-async function seedDefaults() {
-  let changed = false;
-  for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) {
-    const existing = run('SELECT value FROM settings WHERE key = ?', [key]);
-    if (existing.length === 0) {
-      run('INSERT INTO settings (key, value) VALUES (?, ?)', [key, value]);
-      changed = true;
-    }
-  }
-
-  const userCount = run('SELECT COUNT(*) as c FROM users')[0]?.c ?? 0;
-  if (userCount === 0) {
-    const adminHash = await hashPassword('admin123');
-    run(
-      'INSERT INTO users (username, password_hash, full_name, role) VALUES (?, ?, ?, ?)',
-      ['admin', adminHash, 'Administrator', 'admin']
-    );
-    const staffHash = await hashPassword(DEFAULT_STAFF_PASSWORD);
-    for (const s of DEFAULT_STAFF) {
-      run(
-        'INSERT INTO users (username, password_hash, full_name, role) VALUES (?, ?, ?, ?)',
-        [s.username, staffHash, s.full_name, s.role]
-      );
-    }
-    changed = true;
-  }
-
-  const onboardingSectionCount =
-    run("SELECT COUNT(*) as c FROM sections WHERE template_type = 'onboarding'")[0]?.c ?? 0;
-  if (onboardingSectionCount === 0) {
-    seedTemplate(DEFAULT_SECTIONS, 'onboarding');
-    changed = true;
-  }
-
-  // One-time team account added in v0.3.1. Safe to re-run: INSERT OR IGNORE
-  // avoids errors if the account already exists or two computers race on first
-  // launch, and the flag stops it reappearing if an admin later removes it.
-  const dzayasSeeded = run("SELECT value FROM settings WHERE key = 'seed_dzayas_v031'");
-  if (dzayasSeeded.length === 0) {
-    const hash = await hashPassword(DEFAULT_STAFF_PASSWORD);
-    run(
-      'INSERT OR IGNORE INTO users (username, password_hash, full_name, role) VALUES (?, ?, ?, ?)',
-      ['dzayas', hash, 'Diego Linden-Zayas', 'staff']
-    );
-    run("INSERT OR IGNORE INTO settings (key, value) VALUES ('seed_dzayas_v031', 'done')");
-    changed = true;
-  }
-
-  // One-time rebrand in v0.3.3: the corner name became EBG. Only applied if it
-  // is still the original default, so a custom name set in Settings is kept.
-  const ebgRename = run("SELECT value FROM settings WHERE key = 'rename_ebg_v033'");
-  if (ebgRename.length === 0) {
-    const current = run("SELECT value FROM settings WHERE key = 'company_name'")[0]?.value;
-    if (current === 'Neroli') {
-      run("UPDATE settings SET value = 'EBG' WHERE key = 'company_name'");
-    }
-    run("INSERT OR IGNORE INTO settings (key, value) VALUES ('rename_ebg_v033', 'done')");
-    changed = true;
-  }
-
-  // Seed the offboarding template once (added in v0.4.0). Guarded by a flag so
-  // an admin's later edits to the offboarding template are never overwritten.
-  const offboardingSeeded = run("SELECT value FROM settings WHERE key = 'seed_offboarding_v040'");
-  if (offboardingSeeded.length === 0) {
-    const offCount = run("SELECT COUNT(*) as c FROM sections WHERE template_type = 'offboarding'")[0]?.c ?? 0;
-    if (offCount === 0) {
-      seedTemplate(DEFAULT_OFFBOARDING_SECTIONS, 'offboarding');
-    }
-    run("INSERT OR IGNORE INTO settings (key, value) VALUES ('seed_offboarding_v040', 'done')");
-    changed = true;
-  }
-
-  // Seed company emails + the Susan Haise account once (added in v0.4.0). Emails
-  // are only filled where blank, so an admin's edits in Staff are never lost.
-  const emailsSeeded = run("SELECT value FROM settings WHERE key = 'seed_emails_v040'");
-  if (emailsSeeded.length === 0) {
-    const staffHash = await hashPassword(DEFAULT_STAFF_PASSWORD);
-    run(
-      'INSERT OR IGNORE INTO users (username, password_hash, full_name, role) VALUES (?, ?, ?, ?)',
-      ['shaise', staffHash, 'Susan Haise', 'staff']
-    );
-    const staffEmails = {
-      ajacobs: 'alyssaj@ibw.edu',
-      byork: 'brittany@edgelessbeauty.com',
-      dzayas: 'diego@edgelessbeauty.com',
-      hstumbris: 'hayley@edgelessbeauty.com',
-      jgarcia: 'Jennifer@edgelessbeauty.com',
-      kwinter: 'kali@edgelessbeauty.com',
-      kkennedy: 'kari@ibw.edu',
-      mhass: 'meegan@edgelessbeauty.com',
-      snguyen: 'sandy@edgelessbeauty.com',
-      shaise: 'susan@edgelessbeauty.com',
-    };
-    for (const [username, email] of Object.entries(staffEmails)) {
-      run("UPDATE users SET email = ? WHERE username = ? AND (email IS NULL OR email = '')", [email, username]);
-    }
-    run("INSERT OR IGNORE INTO settings (key, value) VALUES ('seed_emails_v040', 'done')");
-    changed = true;
-  }
-
-  return changed;
-}
-
-function seedTemplate(sections, templateType = 'onboarding') {
-  const userByName = {};
-  for (const u of run('SELECT id, full_name FROM users')) {
-    userByName[u.full_name] = u.id;
-  }
-  sections.forEach((section, sIdx) => {
-    run(
-      'INSERT INTO sections (name, description, sort_order, done_by_employee, template_type) VALUES (?, ?, ?, ?, ?)',
-      [section.name, section.description || null, sIdx, section.doneByEmployee ? 1 : 0, templateType]
-    );
-    const sectionId = lastInsertId();
-    section.tasks.forEach((task, tIdx) => {
-      const assigneeId = task.assignee ? userByName[task.assignee] ?? null : null;
-      run(
-        `INSERT INTO template_tasks (section_id, title, default_assignee_id, sort_order)
-         VALUES (?, ?, ?, ?)`,
-        [sectionId, task.title, assigneeId, tIdx]
-      );
-    });
-  });
-}
-
-const MUTATION_RE = /^\s*(INSERT|UPDATE|DELETE|REPLACE|CREATE|DROP|ALTER)/i;
-
-// Low-level execute: no change tracking, no save. Used internally and when
-// replaying recorded operations during a conflict-safe merge.
-function execSql(sql, params = []) {
-  if (!db) throw new Error('Database not initialized');
+// Synchronous read against the local mirror (used by every query helper below).
+function run(sql, params = []) {
+  if (!db) throw new Error('Data not loaded yet');
   const stmt = db.prepare(sql);
   try {
     stmt.bind(params);
@@ -398,116 +91,70 @@ function execSql(sql, params = []) {
   }
 }
 
-// Public query/mutation entry point used by all the domain helpers below.
-// Mutations are recorded so they can be replayed on top of a newer database if
-// another computer saved while we were editing (see doMergeAndWrite).
-export function run(sql, params = []) {
-  const rows = execSql(sql, params);
-  if (MUTATION_RE.test(sql)) {
-    if (recording && !replaying) pendingOps.push({ sql, params: [...params] });
-    scheduleSave();
-  }
-  return rows;
+// Send a mutation to the server (source of truth). Returns { lastInsertId, changes }.
+async function apiExec(sql, params = []) {
+  const res = await apiQuery(sql, params);
+  return { lastInsertId: res.lastInsertId ?? null, changes: res.changes ?? 0 };
 }
 
-// Records a multi-statement operation whose later statements depend on IDs
-// generated by earlier ones (e.g. an employee + their tasks) as one replayable
-// unit, so the IDs are re-derived correctly if it has to be replayed in a merge.
-function composite(replayFn) {
-  const prevRecording = recording;
-  recording = false;
-  try {
-    replayFn();
-  } finally {
-    recording = prevRecording;
-  }
-  if (recording && !replaying) pendingOps.push({ replay: replayFn });
-  scheduleSave();
-}
-
-export function lastInsertId() {
-  const res = run('SELECT last_insert_rowid() as id');
-  return res[0]?.id ?? null;
-}
-
-// --- Shared-folder freshness ------------------------------------------------
-// Returns true if the database file on disk is newer than what we loaded,
-// meaning another computer saved changes we don't have yet.
-export async function hasExternalUpdate() {
-  if (typeof window === 'undefined' || !window.electronAPI?.isElectron) return false;
-  const stat = await window.electronAPI.dbStat?.();
-  if (!stat || stat.mtimeMs == null || lastMtime == null) return false;
-  // Allow small clock jitter (50ms) before flagging an update.
-  return stat.mtimeMs > lastMtime + 50;
+// --- Auth -------------------------------------------------------------------
+export async function login(username, password) {
+  const res = await apiLogin(username, password);
+  setToken(res.token);
+  await reloadMirror();
+  return res.user;
 }
 
 // --- Domain helpers ---------------------------------------------------------
 
 export const Users = {
   list() {
-    return run(
-      'SELECT id, username, full_name, role, email, active, created_at FROM users ORDER BY full_name'
-    );
+    return run('SELECT id, username, full_name, role, email, active, created_at FROM users ORDER BY full_name');
   },
-  // Email addresses for everyone who can be notified (active staff with an email).
   teamEmails() {
-    return run(
-      "SELECT email FROM users WHERE active = 1 AND email IS NOT NULL AND email != '' ORDER BY full_name"
-    ).map((r) => r.email);
+    return run("SELECT email FROM users WHERE active = 1 AND email IS NOT NULL AND email != '' ORDER BY full_name").map((r) => r.email);
   },
   assignable() {
-    return run(
-      "SELECT id, full_name, role FROM users WHERE active = 1 ORDER BY full_name"
-    );
+    return run('SELECT id, full_name, role FROM users WHERE active = 1 ORDER BY full_name');
   },
   get(id) {
     return run('SELECT id, username, full_name, role, email, active FROM users WHERE id = ?', [id])[0] ?? null;
   },
   findByUsername(username) {
-    return run('SELECT * FROM users WHERE username = ?', [username])[0] ?? null;
+    return run('SELECT id, username, full_name, role, active FROM users WHERE username = ?', [username])[0] ?? null;
   },
   async create({ username, password, full_name, role = 'staff', email = null }) {
-    const hash = await hashPassword(password);
-    run(
-      'INSERT INTO users (username, password_hash, full_name, role, email) VALUES (?, ?, ?, ?, ?)',
-      [username, hash, full_name, role, email || null]
-    );
-    return lastInsertId();
+    const res = await apiCreateUser({ username, password, full_name, role, email });
+    await reloadMirror();
+    return res.id;
   },
-  update(id, { full_name, role, active, email }) {
-    run('UPDATE users SET full_name = ?, role = ?, active = ?, email = ? WHERE id = ?', [
-      full_name,
-      role,
-      active ? 1 : 0,
-      email || null,
-      id,
+  async update(id, { full_name, role, active, email }) {
+    await apiExec('UPDATE users SET full_name = ?, role = ?, active = ?, email = ? WHERE id = ?', [
+      full_name, role, active ? 1 : 0, email || null, id,
     ]);
+    await reloadMirror();
   },
   async updatePassword(id, password) {
-    const hash = await hashPassword(password);
-    run('UPDATE users SET password_hash = ? WHERE id = ?', [hash, id]);
+    await apiResetPassword(id, password);
   },
-  // Self-service password change: verifies the current password first.
-  async changeOwnPassword(id, currentPlain, newPlain) {
-    const record = run('SELECT password_hash FROM users WHERE id = ?', [id])[0];
-    if (!record) return { ok: false, error: 'Account not found.' };
-    const currentHash = await hashPassword(currentPlain);
-    if (currentHash !== record.password_hash) {
-      return { ok: false, error: 'Your current password is incorrect.' };
+  // Self-service password change: verified server-side against the logged-in user.
+  async changeOwnPassword(_id, currentPlain, newPlain) {
+    try {
+      await apiChangePassword(currentPlain, newPlain);
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e.message };
     }
-    const newHash = await hashPassword(newPlain);
-    run('UPDATE users SET password_hash = ? WHERE id = ?', [newHash, id]);
-    return { ok: true };
   },
-  remove(id) {
-    // Keep historical assignments readable: null them out rather than orphan.
-    run('UPDATE tasks SET assignee_id = NULL WHERE assignee_id = ?', [id]);
-    run('UPDATE template_tasks SET default_assignee_id = NULL WHERE default_assignee_id = ?', [id]);
-    run('DELETE FROM users WHERE id = ?', [id]);
+  async remove(id) {
+    await apiExec('UPDATE tasks SET assignee_id = NULL WHERE assignee_id = ?', [id]);
+    await apiExec('UPDATE template_tasks SET default_assignee_id = NULL WHERE default_assignee_id = ?', [id]);
+    await apiExec('DELETE FROM users WHERE id = ?', [id]);
+    await reloadMirror();
   },
 };
 
-function seedTasksForEmployee(employeeId, track = 'onboarding') {
+async function seedTasksForEmployee(employeeId, track = 'onboarding') {
   const rows = run(
     `SELECT s.name AS section_name, s.sort_order AS section_order, s.done_by_employee,
             tt.id AS template_task_id, tt.title, tt.default_assignee_id, tt.sort_order
@@ -517,25 +164,23 @@ function seedTasksForEmployee(employeeId, track = 'onboarding') {
      ORDER BY s.sort_order, tt.sort_order`,
     [track]
   );
+  if (rows.length === 0) return;
+  // One multi-row INSERT instead of dozens of round-trips.
+  const tuple = "(?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)";
+  const params = [];
   for (const r of rows) {
-    run(
-      `INSERT INTO tasks
-        (employee_id, template_task_id, section_name, section_order, done_by_employee,
-         track, title, assignee_id, status, sort_order)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
-      [
-        employeeId,
-        r.template_task_id,
-        r.section_name,
-        r.section_order,
-        r.done_by_employee,
-        track,
-        r.title,
-        r.default_assignee_id ?? null,
-        r.sort_order,
-      ]
+    params.push(
+      employeeId, r.template_task_id, r.section_name, r.section_order,
+      r.done_by_employee, track, r.title, r.default_assignee_id ?? null, r.sort_order
     );
   }
+  await apiExec(
+    `INSERT INTO tasks
+      (employee_id, template_task_id, section_name, section_order, done_by_employee,
+       track, title, assignee_id, status, sort_order)
+     VALUES ${rows.map(() => tuple).join(', ')}`,
+    params
+  );
 }
 
 const PROGRESS_SELECT = `
@@ -564,7 +209,8 @@ export const Employees = {
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
     const rows = run(
       `SELECT e.*, ${PROGRESS_SELECT},
-              u.full_name AS manager_name
+              u.full_name AS manager_name,
+              (SELECT COUNT(*) FROM tasks o WHERE o.employee_id = e.id AND o.track = 'offboarding') AS offboarding_count
        FROM employees e
        LEFT JOIN tasks t ON t.employee_id = e.id
        LEFT JOIN users u ON u.id = e.manager_id
@@ -573,7 +219,6 @@ export const Employees = {
        ORDER BY (e.status != 'onboarding'), e.start_date IS NULL, e.start_date ASC, e.created_at DESC`,
       params
     );
-    // Attach computed percent / applicable so callers can read them directly.
     return rows.map((e) => ({ ...e, ...normalizeProgress(e) }));
   },
   get(id) {
@@ -585,85 +230,57 @@ export const Employees = {
     )[0] ?? null;
   },
   progress(id) {
-    const row = run(
-      `SELECT ${PROGRESS_SELECT} FROM tasks t WHERE t.employee_id = ?`,
-      [id]
-    )[0] ?? {};
+    const row = run(`SELECT ${PROGRESS_SELECT} FROM tasks t WHERE t.employee_id = ?`, [id])[0] ?? {};
     return normalizeProgress(row);
   },
-  create(data, { buildOnboarding = true } = {}) {
-    let id = null;
-    composite(() => {
-      run(
-        `INSERT INTO employees
-          (first_name, last_name, position, department, location, start_date,
-           email, phone, manager_id, status, notes, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          data.first_name,
-          data.last_name,
-          data.position || null,
-          data.department || null,
-          data.location || null,
-          data.start_date || null,
-          data.email || null,
-          data.phone || null,
-          data.manager_id || null,
-          data.status || 'onboarding',
-          data.notes || null,
-          data.created_by || null,
-        ]
-      );
-      id = lastInsertId();
-      if (buildOnboarding) seedTasksForEmployee(id, 'onboarding');
-    });
+  async create(data, { buildOnboarding = true } = {}) {
+    const res = await apiExec(
+      `INSERT INTO employees
+        (first_name, last_name, position, department, location, start_date,
+         email, phone, manager_id, status, notes, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        data.first_name, data.last_name, data.position || null, data.department || null,
+        data.location || null, data.start_date || null, data.email || null, data.phone || null,
+        data.manager_id || null, data.status || 'onboarding', data.notes || null, data.created_by || null,
+      ]
+    );
+    const id = res.lastInsertId;
+    if (buildOnboarding) await seedTasksForEmployee(id, 'onboarding');
+    await reloadMirror();
     return id;
   },
   hasOffboarding(id) {
-    return (
-      run("SELECT COUNT(*) AS c FROM tasks WHERE employee_id = ? AND track = 'offboarding'", [id])[0]?.c ?? 0
-    ) > 0;
+    return (run("SELECT COUNT(*) AS c FROM tasks WHERE employee_id = ? AND track = 'offboarding'", [id])[0]?.c ?? 0) > 0;
   },
-  // Builds the offboarding checklist for an existing employee. Never automatic —
-  // an admin triggers it. Re-running just updates the final day, never duplicates.
-  startOffboarding(id, finalDay) {
-    if (this.hasOffboarding(id)) {
-      run("UPDATE employees SET final_day = ?, updated_at = datetime('now') WHERE id = ?", [finalDay || null, id]);
-      return;
-    }
-    composite(() => {
-      run("UPDATE employees SET final_day = ?, updated_at = datetime('now') WHERE id = ?", [finalDay || null, id]);
-      seedTasksForEmployee(id, 'offboarding');
-    });
+  async startOffboarding(id, finalDay) {
+    const already = this.hasOffboarding(id);
+    await apiExec("UPDATE employees SET final_day = ?, updated_at = datetime('now') WHERE id = ?", [finalDay || null, id]);
+    if (!already) await seedTasksForEmployee(id, 'offboarding');
+    await reloadMirror();
   },
-  update(id, data) {
-    run(
+  async update(id, data) {
+    await apiExec(
       `UPDATE employees SET first_name = ?, last_name = ?, position = ?, department = ?,
         location = ?, start_date = ?, email = ?, phone = ?, manager_id = ?, status = ?,
         notes = ?, updated_at = datetime('now')
        WHERE id = ?`,
       [
-        data.first_name,
-        data.last_name,
-        data.position || null,
-        data.department || null,
-        data.location || null,
-        data.start_date || null,
-        data.email || null,
-        data.phone || null,
-        data.manager_id || null,
-        data.status || 'onboarding',
-        data.notes || null,
-        id,
+        data.first_name, data.last_name, data.position || null, data.department || null,
+        data.location || null, data.start_date || null, data.email || null, data.phone || null,
+        data.manager_id || null, data.status || 'onboarding', data.notes || null, id,
       ]
     );
+    await reloadMirror();
   },
-  setStatus(id, status) {
-    run("UPDATE employees SET status = ?, updated_at = datetime('now') WHERE id = ?", [status, id]);
+  async setStatus(id, status) {
+    await apiExec("UPDATE employees SET status = ?, updated_at = datetime('now') WHERE id = ?", [status, id]);
+    await reloadMirror();
   },
-  remove(id) {
-    run('DELETE FROM tasks WHERE employee_id = ?', [id]);
-    run('DELETE FROM employees WHERE id = ?', [id]);
+  async remove(id) {
+    await apiExec('DELETE FROM tasks WHERE employee_id = ?', [id]);
+    await apiExec('DELETE FROM employees WHERE id = ?', [id]);
+    await reloadMirror();
   },
 };
 
@@ -692,8 +309,6 @@ export const Tasks = {
     );
   },
   forAssignee(userId, { includeCompletedEmployees = false } = {}) {
-    // Offboarding tasks always show (the person may have finished onboarding);
-    // onboarding tasks show only for employees still onboarding, unless asked.
     return run(
       `SELECT t.*, e.first_name, e.last_name, e.position, e.start_date, e.final_day,
               e.status AS employee_status
@@ -708,29 +323,29 @@ export const Tasks = {
       [userId, includeCompletedEmployees ? 1 : 0]
     );
   },
-  setStatus(id, status, userId) {
+  async setStatus(id, status, userId) {
     if (status === 'done') {
-      run(
+      await apiExec(
         `UPDATE tasks SET status = 'done', completed_at = datetime('now'),
           completed_by = ?, updated_at = datetime('now') WHERE id = ?`,
         [userId || null, id]
       );
     } else {
-      run(
+      await apiExec(
         `UPDATE tasks SET status = ?, completed_at = NULL, completed_by = NULL,
           updated_at = datetime('now') WHERE id = ?`,
         [status, id]
       );
     }
+    await reloadMirror();
   },
-  setAssignee(id, assigneeId) {
-    run("UPDATE tasks SET assignee_id = ?, updated_at = datetime('now') WHERE id = ?", [
-      assigneeId || null,
-      id,
-    ]);
+  async setAssignee(id, assigneeId) {
+    await apiExec("UPDATE tasks SET assignee_id = ?, updated_at = datetime('now') WHERE id = ?", [assigneeId || null, id]);
+    await reloadMirror();
   },
-  setNotes(id, notes) {
-    run("UPDATE tasks SET notes = ?, updated_at = datetime('now') WHERE id = ?", [notes || null, id]);
+  async setNotes(id, notes) {
+    await apiExec("UPDATE tasks SET notes = ?, updated_at = datetime('now') WHERE id = ?", [notes || null, id]);
+    await reloadMirror();
   },
   openCountForUser(userId) {
     return run(
@@ -740,6 +355,19 @@ export const Tasks = {
       [userId]
     )[0]?.c ?? 0;
   },
+  // Overdue = pending onboarding tasks for someone whose start date has passed.
+  overdue() {
+    return run(
+      `SELECT t.*, e.first_name, e.last_name, e.position, e.start_date,
+              u.full_name AS assignee_name
+       FROM tasks t
+       JOIN employees e ON e.id = t.employee_id
+       LEFT JOIN users u ON u.id = t.assignee_id
+       WHERE t.status = 'pending' AND e.status = 'onboarding'
+         AND e.start_date IS NOT NULL AND date(e.start_date) < date('now')
+       ORDER BY e.start_date ASC, e.last_name`
+    );
+  },
   overdueCount() {
     return run(
       `SELECT COUNT(*) AS c FROM tasks t JOIN employees e ON e.id = t.employee_id
@@ -747,9 +375,12 @@ export const Tasks = {
          AND e.start_date IS NOT NULL AND date(e.start_date) < date('now')`
     )[0]?.c ?? 0;
   },
+  async remove(id) {
+    await apiExec('DELETE FROM tasks WHERE id = ?', [id]);
+    await reloadMirror();
+  },
 };
 
-// Master checklist template editing (Admin → Checklist Template).
 export const Template = {
   sections(type = 'onboarding') {
     return run('SELECT * FROM sections WHERE template_type = ? ORDER BY sort_order, id', [type]);
@@ -765,60 +396,55 @@ export const Template = {
       [type]
     );
   },
-  addSection({ name, description, done_by_employee, template_type = 'onboarding' }) {
-    const max =
-      run('SELECT MAX(sort_order) AS m FROM sections WHERE template_type = ?', [template_type])[0]?.m ?? -1;
-    run(
+  async addSection({ name, description, done_by_employee, template_type = 'onboarding' }) {
+    const max = run('SELECT MAX(sort_order) AS m FROM sections WHERE template_type = ?', [template_type])[0]?.m ?? -1;
+    const res = await apiExec(
       'INSERT INTO sections (name, description, sort_order, done_by_employee, template_type) VALUES (?, ?, ?, ?, ?)',
       [name, description || null, max + 1, done_by_employee ? 1 : 0, template_type]
     );
-    return lastInsertId();
+    await reloadMirror();
+    return res.lastInsertId;
   },
-  updateSection(id, { name, description, done_by_employee }) {
-    run('UPDATE sections SET name = ?, description = ?, done_by_employee = ? WHERE id = ?', [
-      name,
-      description || null,
-      done_by_employee ? 1 : 0,
-      id,
+  async updateSection(id, { name, description, done_by_employee }) {
+    await apiExec('UPDATE sections SET name = ?, description = ?, done_by_employee = ? WHERE id = ?', [
+      name, description || null, done_by_employee ? 1 : 0, id,
     ]);
+    await reloadMirror();
   },
-  removeSection(id) {
-    run('DELETE FROM template_tasks WHERE section_id = ?', [id]);
-    run('DELETE FROM sections WHERE id = ?', [id]);
+  async removeSection(id) {
+    await apiExec('DELETE FROM template_tasks WHERE section_id = ?', [id]);
+    await apiExec('DELETE FROM sections WHERE id = ?', [id]);
+    await reloadMirror();
   },
-  addTask({ section_id, title, default_assignee_id }) {
-    const max =
-      run('SELECT MAX(sort_order) AS m FROM template_tasks WHERE section_id = ?', [section_id])[0]
-        ?.m ?? -1;
-    run(
-      `INSERT INTO template_tasks (section_id, title, default_assignee_id, sort_order)
-       VALUES (?, ?, ?, ?)`,
+  async addTask({ section_id, title, default_assignee_id }) {
+    const max = run('SELECT MAX(sort_order) AS m FROM template_tasks WHERE section_id = ?', [section_id])[0]?.m ?? -1;
+    const res = await apiExec(
+      'INSERT INTO template_tasks (section_id, title, default_assignee_id, sort_order) VALUES (?, ?, ?, ?)',
       [section_id, title, default_assignee_id || null, max + 1]
     );
-    return lastInsertId();
+    await reloadMirror();
+    return res.lastInsertId;
   },
-  updateTask(id, { title, default_assignee_id }) {
-    run('UPDATE template_tasks SET title = ?, default_assignee_id = ? WHERE id = ?', [
-      title,
-      default_assignee_id || null,
-      id,
+  async updateTask(id, { title, default_assignee_id }) {
+    await apiExec('UPDATE template_tasks SET title = ?, default_assignee_id = ? WHERE id = ?', [
+      title, default_assignee_id || null, id,
     ]);
+    await reloadMirror();
   },
-  removeTask(id) {
-    run('DELETE FROM template_tasks WHERE id = ?', [id]);
+  async removeTask(id) {
+    await apiExec('DELETE FROM template_tasks WHERE id = ?', [id]);
+    await reloadMirror();
   },
 };
 
 export const Audit = {
+  // Fire-and-forget; audit rows aren't shown in the UI, so no mirror refresh.
   log({ user_id, username, action, entity, entity_id, details }) {
-    run(
+    apiQuery(
       `INSERT INTO audit_log (user_id, username, action, entity, entity_id, details)
        VALUES (?, ?, ?, ?, ?, ?)`,
       [user_id || null, username || null, action, entity || null, entity_id || null, details || null]
-    );
-  },
-  recent(limit = 100) {
-    return run('SELECT * FROM audit_log ORDER BY created_at DESC LIMIT ?', [limit]);
+    ).catch(() => { /* non-critical */ });
   },
 };
 
@@ -832,36 +458,22 @@ export const Settings = {
   get(key) {
     return run('SELECT value FROM settings WHERE key = ?', [key])[0]?.value ?? null;
   },
-  set(key, value) {
-    const existing = run('SELECT key FROM settings WHERE key = ?', [key]);
-    if (existing.length) {
-      run('UPDATE settings SET value = ? WHERE key = ?', [value, key]);
-    } else {
-      run('INSERT INTO settings (key, value) VALUES (?, ?)', [key, value]);
-    }
+  async set(key, value) {
+    const exists = run('SELECT key FROM settings WHERE key = ?', [key]).length > 0;
+    if (exists) await apiExec('UPDATE settings SET value = ? WHERE key = ?', [value, key]);
+    else await apiExec('INSERT INTO settings (key, value) VALUES (?, ?)', [key, value]);
+    await reloadMirror();
   },
 };
 
+// Export the current mirror as a .db file for backups.
 export function exportDatabase() {
   if (!db) return null;
   return db.export();
 }
 
-export async function importDatabase(bytes) {
-  if (!SQL) {
-    const initSqlJs = await loadSqlJs();
-    SQL = await initSqlJs({ locateFile: () => sqlWasmUrl });
-  }
-  db = new SQL.Database(bytes);
-  db.exec(SCHEMA);
-  pendingOps = [];
-  await writePersisted(db.export());
-}
-
-export async function forceSave() {
-  if (saveTimeout) {
-    clearTimeout(saveTimeout);
-    saveTimeout = null;
-  }
-  await conflictSafeSave();
+// Kept as a no-op stub; the cloud version refreshes via reloadMirror instead of
+// watching a shared file. Layout still imports this.
+export async function hasExternalUpdate() {
+  return false;
 }
