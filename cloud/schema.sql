@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS employees (
   position TEXT,
   department TEXT,
   location TEXT,
+  business TEXT,
   start_date TEXT,
   email TEXT,
   phone TEXT,
@@ -38,7 +39,8 @@ CREATE TABLE IF NOT EXISTS sections (
   description TEXT,
   sort_order INTEGER DEFAULT 0,
   done_by_employee INTEGER DEFAULT 0,
-  template_type TEXT DEFAULT 'onboarding'
+  template_type TEXT DEFAULT 'onboarding',
+  business TEXT
 );
 
 CREATE TABLE IF NOT EXISTS template_tasks (

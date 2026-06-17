@@ -37,8 +37,8 @@ function dataSignature(row) {
 // Mirror schema (password_hash is nullable here — the server never sends hashes).
 const MIRROR_SCHEMA = `
 CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, password_hash TEXT, full_name TEXT, role TEXT, email TEXT, active INTEGER, created_at TEXT);
-CREATE TABLE employees (id INTEGER PRIMARY KEY, first_name TEXT, last_name TEXT, position TEXT, department TEXT, location TEXT, start_date TEXT, email TEXT, phone TEXT, manager_id INTEGER, status TEXT, final_day TEXT, notes TEXT, created_by INTEGER, created_at TEXT, updated_at TEXT);
-CREATE TABLE sections (id INTEGER PRIMARY KEY, name TEXT, description TEXT, sort_order INTEGER, done_by_employee INTEGER, template_type TEXT);
+CREATE TABLE employees (id INTEGER PRIMARY KEY, first_name TEXT, last_name TEXT, position TEXT, department TEXT, location TEXT, business TEXT, start_date TEXT, email TEXT, phone TEXT, manager_id INTEGER, status TEXT, final_day TEXT, notes TEXT, created_by INTEGER, created_at TEXT, updated_at TEXT);
+CREATE TABLE sections (id INTEGER PRIMARY KEY, name TEXT, description TEXT, sort_order INTEGER, done_by_employee INTEGER, template_type TEXT, business TEXT);
 CREATE TABLE template_tasks (id INTEGER PRIMARY KEY, section_id INTEGER, title TEXT, description TEXT, default_assignee_id INTEGER, sort_order INTEGER, active INTEGER);
 CREATE TABLE tasks (id INTEGER PRIMARY KEY, employee_id INTEGER, template_task_id INTEGER, section_name TEXT, section_order INTEGER, done_by_employee INTEGER, track TEXT, title TEXT, assignee_id INTEGER, status TEXT, notes TEXT, sort_order INTEGER, completed_at TEXT, completed_by INTEGER, created_at TEXT, updated_at TEXT);
 CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT);
@@ -172,15 +172,16 @@ export const Users = {
   },
 };
 
-async function seedTasksForEmployee(employeeId, track = 'onboarding') {
+async function seedTasksForEmployee(employeeId, track = 'onboarding', business = null) {
   const rows = run(
     `SELECT s.name AS section_name, s.sort_order AS section_order, s.done_by_employee,
             tt.id AS template_task_id, tt.title, tt.default_assignee_id, tt.sort_order
      FROM template_tasks tt
      JOIN sections s ON s.id = tt.section_id
      WHERE tt.active = 1 AND s.template_type = ?
+       AND (s.business IS NULL OR s.business = '' OR s.business = ?)
      ORDER BY s.sort_order, tt.sort_order`,
-    [track]
+    [track, business || '']
   );
   if (rows.length === 0) return;
   const tuple = "(?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)";
@@ -202,6 +203,81 @@ async function seedTasksForEmployee(employeeId, track = 'onboarding') {
          track, title, assignee_id, status, sort_order)
        VALUES ${slice.map(() => tuple).join(', ')}`,
       params
+    );
+  }
+}
+
+// --- Template propagation ---------------------------------------------------
+// When a template task is added/removed/renamed, mirror that onto everyone who
+// is *currently* onboarding/offboarding so their live checklists stay in sync,
+// while respecting business-scoped sections. People who have already finished
+// keep their checklist exactly as it was.
+
+// Who counts as "currently onboarding/offboarding" for a given track + business:
+//  - onboarding: anyone whose status is still 'onboarding'
+//  - offboarding: anyone who currently has offboarding tasks
+// A business-scoped section (e.g. IBW) only reaches matching employees; an
+// "any business" section (null/empty) reaches everyone on that track.
+function inProgressEmployeesForTrack(track, business) {
+  const rows = track === 'offboarding'
+    ? run(`SELECT DISTINCT e.id, e.business FROM employees e
+           JOIN tasks t ON t.employee_id = e.id WHERE t.track = 'offboarding'`)
+    : run("SELECT id, business FROM employees WHERE status = 'onboarding'");
+  if (!business) return rows;
+  return rows.filter((e) => (e.business || '') === business);
+}
+
+// Add a freshly-created template task onto every in-progress person it applies to.
+async function addTemplateTaskToInProgress(templateTaskId) {
+  const info = run(
+    `SELECT s.name AS section_name, s.sort_order AS section_order, s.done_by_employee,
+            s.template_type AS track, s.business,
+            tt.id AS template_task_id, tt.title, tt.default_assignee_id, tt.sort_order
+     FROM template_tasks tt JOIN sections s ON s.id = tt.section_id
+     WHERE tt.id = ?`,
+    [templateTaskId]
+  )[0];
+  if (!info) return;
+  const targets = inProgressEmployeesForTrack(info.track, info.business);
+  if (targets.length === 0) return;
+  const tuple = "(?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)";
+  const CHUNK = 10; // stay under D1's 100-variable limit (9 vars/row)
+  for (let i = 0; i < targets.length; i += CHUNK) {
+    const slice = targets.slice(i, i + CHUNK);
+    const params = [];
+    for (const emp of slice) {
+      params.push(
+        emp.id, info.template_task_id, info.section_name, info.section_order,
+        info.done_by_employee, info.track, info.title, info.default_assignee_id ?? null, info.sort_order
+      );
+    }
+    await apiExec(
+      `INSERT INTO tasks
+        (employee_id, template_task_id, section_name, section_order, done_by_employee,
+         track, title, assignee_id, status, sort_order)
+       VALUES ${slice.map(() => tuple).join(', ')}`,
+      params
+    );
+  }
+}
+
+// Remove a template task from in-progress people's live checklists. (Must be
+// called BEFORE the template_tasks row is deleted, so the track can be read.)
+async function removeTemplateTaskFromInProgress(templateTaskId) {
+  const info = run(
+    `SELECT s.template_type AS track FROM template_tasks tt
+     JOIN sections s ON s.id = tt.section_id WHERE tt.id = ?`,
+    [templateTaskId]
+  )[0];
+  if (!info) return;
+  if (info.track === 'offboarding') {
+    // Every per-employee row with this template id belongs to someone offboarding.
+    await apiExec('DELETE FROM tasks WHERE template_task_id = ?', [templateTaskId]);
+  } else {
+    await apiExec(
+      `DELETE FROM tasks WHERE template_task_id = ?
+        AND employee_id IN (SELECT id FROM employees WHERE status = 'onboarding')`,
+      [templateTaskId]
     );
   }
 }
@@ -259,17 +335,17 @@ export const Employees = {
   async create(data, { buildOnboarding = true } = {}) {
     const res = await apiExec(
       `INSERT INTO employees
-        (first_name, last_name, position, department, location, start_date,
+        (first_name, last_name, position, department, location, business, start_date,
          email, phone, manager_id, status, notes, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         data.first_name, data.last_name, data.position || null, data.department || null,
-        data.location || null, data.start_date || null, data.email || null, data.phone || null,
+        data.location || null, data.business || null, data.start_date || null, data.email || null, data.phone || null,
         data.manager_id || null, data.status || 'onboarding', data.notes || null, data.created_by || null,
       ]
     );
     const id = res.lastInsertId;
-    if (buildOnboarding) await seedTasksForEmployee(id, 'onboarding');
+    if (buildOnboarding) await seedTasksForEmployee(id, 'onboarding', data.business || null);
     await reloadMirror();
     return id;
   },
@@ -278,19 +354,20 @@ export const Employees = {
   },
   async startOffboarding(id, finalDay) {
     const already = this.hasOffboarding(id);
+    const emp = this.get(id);
     await apiExec("UPDATE employees SET final_day = ?, updated_at = datetime('now') WHERE id = ?", [finalDay || null, id]);
-    if (!already) await seedTasksForEmployee(id, 'offboarding');
+    if (!already) await seedTasksForEmployee(id, 'offboarding', emp?.business || null);
     await reloadMirror();
   },
   async update(id, data) {
     await apiExec(
       `UPDATE employees SET first_name = ?, last_name = ?, position = ?, department = ?,
-        location = ?, start_date = ?, email = ?, phone = ?, manager_id = ?, status = ?,
+        location = ?, business = ?, start_date = ?, email = ?, phone = ?, manager_id = ?, status = ?,
         notes = ?, updated_at = datetime('now')
        WHERE id = ?`,
       [
         data.first_name, data.last_name, data.position || null, data.department || null,
-        data.location || null, data.start_date || null, data.email || null, data.phone || null,
+        data.location || null, data.business || null, data.start_date || null, data.email || null, data.phone || null,
         data.manager_id || null, data.status || 'onboarding', data.notes || null, id,
       ]
     );
@@ -419,22 +496,26 @@ export const Template = {
       [type]
     );
   },
-  async addSection({ name, description, done_by_employee, template_type = 'onboarding' }) {
+  async addSection({ name, description, done_by_employee, template_type = 'onboarding', business = null }) {
     const max = run('SELECT MAX(sort_order) AS m FROM sections WHERE template_type = ?', [template_type])[0]?.m ?? -1;
     const res = await apiExec(
-      'INSERT INTO sections (name, description, sort_order, done_by_employee, template_type) VALUES (?, ?, ?, ?, ?)',
-      [name, description || null, max + 1, done_by_employee ? 1 : 0, template_type]
+      'INSERT INTO sections (name, description, sort_order, done_by_employee, template_type, business) VALUES (?, ?, ?, ?, ?, ?)',
+      [name, description || null, max + 1, done_by_employee ? 1 : 0, template_type, business || null]
     );
     await reloadMirror();
     return res.lastInsertId;
   },
-  async updateSection(id, { name, description, done_by_employee }) {
-    await apiExec('UPDATE sections SET name = ?, description = ?, done_by_employee = ? WHERE id = ?', [
-      name, description || null, done_by_employee ? 1 : 0, id,
+  async updateSection(id, { name, description, done_by_employee, business = null }) {
+    await apiExec('UPDATE sections SET name = ?, description = ?, done_by_employee = ?, business = ? WHERE id = ?', [
+      name, description || null, done_by_employee ? 1 : 0, business || null, id,
     ]);
     await reloadMirror();
   },
   async removeSection(id) {
+    // Pull the section's task ids first so we can also strip them from the live
+    // checklists of anyone currently on/offboarding (read before we delete).
+    const taskIds = run('SELECT id FROM template_tasks WHERE section_id = ?', [id]).map((r) => r.id);
+    for (const tid of taskIds) await removeTemplateTaskFromInProgress(tid);
     await apiExec('DELETE FROM template_tasks WHERE section_id = ?', [id]);
     await apiExec('DELETE FROM sections WHERE id = ?', [id]);
     await reloadMirror();
@@ -445,6 +526,10 @@ export const Template = {
       'INSERT INTO template_tasks (section_id, title, default_assignee_id, sort_order) VALUES (?, ?, ?, ?)',
       [section_id, title, default_assignee_id || null, max + 1]
     );
+    // Reload so the mirror has the new task (and its section) before we copy it
+    // onto people who are currently on/offboarding.
+    await reloadMirror();
+    await addTemplateTaskToInProgress(res.lastInsertId);
     await reloadMirror();
     return res.lastInsertId;
   },
@@ -452,9 +537,18 @@ export const Template = {
     await apiExec('UPDATE template_tasks SET title = ?, default_assignee_id = ? WHERE id = ?', [
       title, default_assignee_id || null, id,
     ]);
+    // Keep live checklists' wording in sync (title only — each person's assignee,
+    // notes and progress are managed individually and left untouched).
+    await apiExec(
+      `UPDATE tasks SET title = ?, updated_at = datetime('now')
+        WHERE template_task_id = ?
+          AND (track = 'offboarding' OR employee_id IN (SELECT id FROM employees WHERE status = 'onboarding'))`,
+      [title, id]
+    );
     await reloadMirror();
   },
   async removeTask(id) {
+    await removeTemplateTaskFromInProgress(id);
     await apiExec('DELETE FROM template_tasks WHERE id = ?', [id]);
     await reloadMirror();
   },

@@ -9,6 +9,8 @@ const STATUS_OPTIONS = [
   { value: 'cancelled', label: 'Cancelled' },
 ];
 
+const BUSINESS_OPTIONS = ['IBW', 'Neroli', 'SKNBar', 'Nala', 'Other'];
+
 export default function EmployeeFormModal({ employee, onClose, onSubmit }) {
   const isEdit = !!employee;
   const [form, setForm] = useState({
@@ -17,6 +19,7 @@ export default function EmployeeFormModal({ employee, onClose, onSubmit }) {
     position: employee?.position || '',
     department: employee?.department || '',
     location: employee?.location || '',
+    business: employee?.business || '',
     start_date: employee?.start_date || '',
     email: employee?.email || '',
     phone: employee?.phone || '',
@@ -100,14 +103,19 @@ export default function EmployeeFormModal({ employee, onClose, onSubmit }) {
               <input className="input" value={form.position} onChange={(e) => set('position', e.target.value)} placeholder="e.g. Housekeeping" />
             </div>
             <div className="field">
-              <label className="label">Start date</label>
-              <input type="date" className="input" value={form.start_date} onChange={(e) => set('start_date', e.target.value)} />
+              <label className="label">Department</label>
+              <input className="input" value={form.department} onChange={(e) => set('department', e.target.value)} />
             </div>
           </div>
           <div className="field-row">
             <div className="field">
-              <label className="label">Department</label>
-              <input className="input" value={form.department} onChange={(e) => set('department', e.target.value)} />
+              <label className="label">Business</label>
+              <select className="select" value={form.business} onChange={(e) => set('business', e.target.value)}>
+                <option value="">— None —</option>
+                {BUSINESS_OPTIONS.map((b) => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
+              </select>
             </div>
             <div className="field">
               <label className="label">Location</label>
@@ -116,23 +124,8 @@ export default function EmployeeFormModal({ employee, onClose, onSubmit }) {
           </div>
           <div className="field-row">
             <div className="field">
-              <label className="label">Email</label>
-              <input className="input" value={form.email} onChange={(e) => set('email', e.target.value)} />
-            </div>
-            <div className="field">
-              <label className="label">Phone</label>
-              <input className="input" value={form.phone} onChange={(e) => set('phone', e.target.value)} />
-            </div>
-          </div>
-          <div className="field-row">
-            <div className="field">
-              <label className="label">Onboarding owner</label>
-              <select className="select" value={form.manager_id} onChange={(e) => set('manager_id', e.target.value)}>
-                <option value="">— None —</option>
-                {managers.map((m) => (
-                  <option key={m.id} value={m.id}>{m.full_name}</option>
-                ))}
-              </select>
+              <label className="label">Start date</label>
+              <input type="date" className="input" value={form.start_date} onChange={(e) => set('start_date', e.target.value)} />
             </div>
             {isEdit && (
               <div className="field">
@@ -144,6 +137,25 @@ export default function EmployeeFormModal({ employee, onClose, onSubmit }) {
                 </select>
               </div>
             )}
+          </div>
+          <div className="field-row">
+            <div className="field">
+              <label className="label">Email</label>
+              <input className="input" value={form.email} onChange={(e) => set('email', e.target.value)} />
+            </div>
+            <div className="field">
+              <label className="label">Phone</label>
+              <input className="input" value={form.phone} onChange={(e) => set('phone', e.target.value)} />
+            </div>
+          </div>
+          <div className="field">
+            <label className="label">Onboarding owner</label>
+            <select className="select" value={form.manager_id} onChange={(e) => set('manager_id', e.target.value)}>
+              <option value="">— None —</option>
+              {managers.map((m) => (
+                <option key={m.id} value={m.id}>{m.full_name}</option>
+              ))}
+            </select>
           </div>
           <div className="field">
             <label className="label">Notes</label>

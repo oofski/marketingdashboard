@@ -102,6 +102,7 @@ export default function EmployeeList() {
               <tr>
                 <th>Name</th>
                 <th>Position</th>
+                <th>Business</th>
                 <th>Start date</th>
                 <th>Owner</th>
                 <th>Status</th>
@@ -117,6 +118,7 @@ export default function EmployeeList() {
                       <strong>{e.first_name} {e.last_name}</strong>
                     </td>
                     <td>{e.position || <span className="text-muted">—</span>}</td>
+                    <td>{e.business || <span className="text-muted">—</span>}</td>
                     <td>{startDateLabel(e.start_date)}</td>
                     <td>{e.manager_name || <span className="text-muted">—</span>}</td>
                     <td>
