@@ -10,3 +10,5 @@ release/
 .idea/
 *.db
 onboarding-data.db
+# Migration dump — contains employee data + password hashes, never commit it.
+cloud/data.sql
