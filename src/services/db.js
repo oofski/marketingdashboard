@@ -168,22 +168,27 @@ async function seedTasksForEmployee(employeeId, track = 'onboarding') {
     [track]
   );
   if (rows.length === 0) return;
-  // One multi-row INSERT instead of dozens of round-trips.
   const tuple = "(?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)";
-  const params = [];
-  for (const r of rows) {
-    params.push(
-      employeeId, r.template_task_id, r.section_name, r.section_order,
-      r.done_by_employee, track, r.title, r.default_assignee_id ?? null, r.sort_order
+  // Cloudflare D1 allows at most 100 bound variables per query; at 9 per row
+  // that's ~11 rows, so insert in batches of 10 to stay safely under the limit.
+  const CHUNK = 10;
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const slice = rows.slice(i, i + CHUNK);
+    const params = [];
+    for (const r of slice) {
+      params.push(
+        employeeId, r.template_task_id, r.section_name, r.section_order,
+        r.done_by_employee, track, r.title, r.default_assignee_id ?? null, r.sort_order
+      );
+    }
+    await apiExec(
+      `INSERT INTO tasks
+        (employee_id, template_task_id, section_name, section_order, done_by_employee,
+         track, title, assignee_id, status, sort_order)
+       VALUES ${slice.map(() => tuple).join(', ')}`,
+      params
     );
   }
-  await apiExec(
-    `INSERT INTO tasks
-      (employee_id, template_task_id, section_name, section_order, done_by_employee,
-       track, title, assignee_id, status, sort_order)
-     VALUES ${rows.map(() => tuple).join(', ')}`,
-    params
-  );
 }
 
 const PROGRESS_SELECT = `

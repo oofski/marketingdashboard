@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { Settings as S } from '../services/db.js';
+import { useUpdateStatus } from '../services/updates.js';
 
 export default function Login() {
   const { login } = useAuth();
@@ -10,6 +11,7 @@ export default function Login() {
   const [busy, setBusy] = useState(false);
 
   const company = S.get('company_name') || 'EBG';
+  const { status: appUpdate, installUpdate } = useUpdateStatus();
 
   async function submit(e) {
     e.preventDefault();
@@ -51,6 +53,12 @@ export default function Login() {
             {busy ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
+        {appUpdate.state === 'downloaded' && (
+          <div className="update-banner" style={{ marginTop: 16 }}>
+            <span>A new version is ready.</span>
+            <button className="btn btn-sm btn-primary" onClick={installUpdate}>Restart to update</button>
+          </div>
+        )}
       </div>
     </div>
   );
