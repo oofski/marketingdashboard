@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, Pencil, X, GripVertical } from 'lucide-react';
+import { Plus, Trash2, Pencil, X, GripVertical, LayoutGrid, Check } from 'lucide-react';
 import { Template, Users, Audit } from '../services/db.js';
+import { SECTION_LIBRARY, libraryCompanies } from '../services/sectionLibrary.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
 
 export default function TemplateEditor() {
@@ -8,6 +9,7 @@ export default function TemplateEditor() {
   const [sections, setSections] = useState([]);
   const [tasksBySection, setTasksBySection] = useState({});
   const [sectionModal, setSectionModal] = useState(null); // null | 'new' | section
+  const [showLibrary, setShowLibrary] = useState(false);
   const [templateType, setTemplateType] = useState('onboarding');
   const assignees = Users.assignable();
 
@@ -71,6 +73,24 @@ export default function TemplateEditor() {
     refresh();
   }
 
+  // Drop a pre-built block into the current template: create its section, then
+  // add each of its tasks (assigned to the block's named person if we can match
+  // one). Behaves exactly like building the section by hand.
+  async function addBlock(block) {
+    const assignee = block.assignee ? assignees.find((a) => a.full_name === block.assignee) : null;
+    const sectionId = await Template.addSection({
+      name: block.name,
+      description: block.description,
+      done_by_employee: block.done_by_employee,
+      template_type: templateType,
+    });
+    for (const t of block.tasks) {
+      await Template.addTask({ section_id: sectionId, title: t.title, default_assignee_id: assignee?.id ?? null });
+    }
+    audit('template_block_add', `${block.company}: ${block.name}`);
+    refresh();
+  }
+
   return (
     <div>
       <div className="page-header">
@@ -83,6 +103,9 @@ export default function TemplateEditor() {
           </div>
         </div>
         <div className="page-actions">
+          <button className="btn" onClick={() => setShowLibrary(true)}>
+            <LayoutGrid size={14} /> Pre-built sections
+          </button>
           <button className="btn btn-primary" onClick={() => setSectionModal('new')}>
             <Plus size={14} /> Add section
           </button>
@@ -158,6 +181,88 @@ export default function TemplateEditor() {
           onSubmit={saveSection}
         />
       )}
+
+      {showLibrary && (
+        <BlockLibraryModal
+          templateType={templateType}
+          existingNames={sections.map((s) => (s.name || '').toLowerCase())}
+          onClose={() => setShowLibrary(false)}
+          onAdd={addBlock}
+        />
+      )}
+    </div>
+  );
+}
+
+// A picker of pre-built sections ("building blocks"), grouped by company and
+// filtered to the template (onboarding/offboarding) currently being edited.
+// Stays open after adding so several blocks can be dropped in at once.
+function BlockLibraryModal({ templateType, existingNames, onClose, onAdd }) {
+  const [busyId, setBusyId] = useState(null);
+  const blocks = SECTION_LIBRARY.filter((b) => b.template_type === templateType);
+  const companies = libraryCompanies().filter((c) => blocks.some((b) => b.company === c));
+
+  async function handleAdd(block) {
+    setBusyId(block.id);
+    try {
+      await onAdd(block);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2 className="modal-title">Pre-built {templateType} sections</h2>
+          <button className="btn btn-ghost" onClick={onClose}><X size={16} /></button>
+        </div>
+        <div className="card-subtitle mb-4">
+          Click <strong>Add</strong> to drop a ready-made section and its tasks into your{' '}
+          {templateType} template. You can edit or remove anything afterwards like a normal section.
+        </div>
+
+        {blocks.length === 0 ? (
+          <div className="empty-state">
+            No pre-built {templateType} sections yet. Tell us the section and its tasks and we'll add it here.
+          </div>
+        ) : (
+          companies.map((company) => (
+            <div key={company} style={{ marginBottom: 14 }}>
+              <div className="label" style={{ marginBottom: 6 }}>{company}</div>
+              {blocks.filter((b) => b.company === company).map((b) => {
+                const already = existingNames.includes((b.name || '').toLowerCase());
+                return (
+                  <div className="card" key={b.id} style={{ marginBottom: 8 }}>
+                    <div className="section-head">
+                      <div>
+                        <h3 className="card-title">{b.name}</h3>
+                        {b.description && <div className="text-xs text-muted">{b.description}</div>}
+                        <div className="text-xs text-muted" style={{ marginTop: 4 }}>
+                          {b.tasks.length} task{b.tasks.length === 1 ? '' : 's'}
+                          {b.assignee ? ` · assigned to ${b.assignee}` : ''}: {b.tasks.map((t) => t.title).join(', ')}
+                        </div>
+                      </div>
+                      <button
+                        className="btn btn-sm btn-primary"
+                        disabled={already || busyId === b.id}
+                        onClick={() => handleAdd(b)}
+                      >
+                        {already ? <><Check size={12} /> Added</> : busyId === b.id ? 'Adding…' : <><Plus size={12} /> Add</>}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ))
+        )}
+
+        <div className="modal-footer">
+          <button type="button" className="btn" onClick={onClose}>Done</button>
+        </div>
+      </div>
     </div>
   );
 }
