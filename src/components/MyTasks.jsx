@@ -22,8 +22,8 @@ export default function MyTasks() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id, includeCompleted]);
 
-  function setStatus(task, status) {
-    Tasks.setStatus(task.id, status, user.id);
+  async function setStatus(task, status) {
+    await Tasks.setStatus(task.id, status, user.id);
     Audit.log({
       user_id: user.id, username: user.username, action: 'task_status',
       entity: 'task', entity_id: task.id, details: `${task.title} → ${status}`,

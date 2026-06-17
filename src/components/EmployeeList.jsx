@@ -35,7 +35,7 @@ export default function EmployeeList() {
 
   async function handleCreate(data) {
     const { build_onboarding = true, notify_team = false, ...emp } = data;
-    const id = Employees.create({ ...emp, created_by: user.id }, { buildOnboarding: build_onboarding });
+    const id = await Employees.create({ ...emp, created_by: user.id }, { buildOnboarding: build_onboarding });
     Audit.log({
       user_id: user.id,
       username: user.username,

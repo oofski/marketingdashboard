@@ -76,8 +76,8 @@ export default function EmployeeDetail() {
   const hasOffboardingTasks = sections.some((s) => s.track === 'offboarding');
   const bothTracks = hasOffboardingTasks && sections.some((s) => s.track === 'onboarding');
 
-  function setStatus(task, status) {
-    Tasks.setStatus(task.id, status, user.id);
+  async function setStatus(task, status) {
+    await Tasks.setStatus(task.id, status, user.id);
     Audit.log({
       user_id: user.id, username: user.username, action: 'task_status',
       entity: 'task', entity_id: task.id, details: `${task.title} → ${status}`,
@@ -85,19 +85,19 @@ export default function EmployeeDetail() {
     refresh();
   }
 
-  function setAssignee(task, assigneeId) {
-    Tasks.setAssignee(task.id, assigneeId ? Number(assigneeId) : null);
+  async function setAssignee(task, assigneeId) {
+    await Tasks.setAssignee(task.id, assigneeId ? Number(assigneeId) : null);
     refresh();
   }
 
-  function setNotes(task, notes) {
-    Tasks.setNotes(task.id, notes);
+  async function setNotes(task, notes) {
+    await Tasks.setNotes(task.id, notes);
     // No full refresh needed for notes; update local copy to avoid cursor jumps.
     setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, notes } : t)));
   }
 
-  function handleEdit(data) {
-    Employees.update(employeeId, data);
+  async function handleEdit(data) {
+    await Employees.update(employeeId, data);
     Audit.log({
       user_id: user.id, username: user.username, action: 'employee_update',
       entity: 'employee', entity_id: employeeId,
@@ -106,9 +106,9 @@ export default function EmployeeDetail() {
     refresh();
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!confirm(`Delete ${employee.first_name} ${employee.last_name} and their checklist? This cannot be undone.`)) return;
-    Employees.remove(employeeId);
+    await Employees.remove(employeeId);
     Audit.log({
       user_id: user.id, username: user.username, action: 'employee_delete',
       entity: 'employee', entity_id: employeeId,
@@ -117,8 +117,8 @@ export default function EmployeeDetail() {
     navigate('/employees');
   }
 
-  function changeEmployeeStatus(status) {
-    Employees.setStatus(employeeId, status);
+  async function changeEmployeeStatus(status) {
+    await Employees.setStatus(employeeId, status);
     refresh();
   }
 
@@ -128,8 +128,8 @@ export default function EmployeeDetail() {
     if (!res.ok) alert(res.reason);
   }
 
-  function handleStartOffboarding({ final_day, notify_team }) {
-    Employees.startOffboarding(employeeId, final_day || null);
+  async function handleStartOffboarding({ final_day, notify_team }) {
+    await Employees.startOffboarding(employeeId, final_day || null);
     Audit.log({
       user_id: user.id, username: user.username, action: 'employee_offboarding_start',
       entity: 'employee', entity_id: employeeId,

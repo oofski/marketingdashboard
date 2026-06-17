@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { UserPlus, Trash2, KeyRound, Pencil, X } from 'lucide-react';
-import { Users, Audit, forceSave } from '../services/db.js';
+import { Users, Audit } from '../services/db.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
 
 const ROLES = [
@@ -25,16 +25,13 @@ export default function UserManagement() {
 
   async function handleSubmit(data) {
     if (data.id) {
-      Users.update(data.id, data);
+      await Users.update(data.id, data);
       Audit.log({ user_id: user.id, username: user.username, action: 'user_update', entity: 'user', entity_id: data.id });
     } else {
       if (Users.findByUsername(data.username)) throw new Error('That username already exists.');
       const id = await Users.create(data);
       Audit.log({ user_id: user.id, username: user.username, action: 'user_create', entity: 'user', entity_id: id });
     }
-    // Write to disk right away so a new/edited account can't be lost if the app
-    // is closed or refreshes before the debounced save fires.
-    await forceSave();
     setFormTarget(null);
     refresh();
   }
@@ -42,9 +39,8 @@ export default function UserManagement() {
   async function handleDelete(u) {
     if (u.id === user.id) return;
     if (!confirm(`Remove ${u.full_name}? Their task assignments will become unassigned.`)) return;
-    Users.remove(u.id);
+    await Users.remove(u.id);
     Audit.log({ user_id: user.id, username: user.username, action: 'user_delete', entity: 'user', entity_id: u.id });
-    await forceSave();
     refresh();
   }
 
@@ -52,7 +48,6 @@ export default function UserManagement() {
     if (!passwordTarget) return;
     await Users.updatePassword(passwordTarget.id, newPassword);
     Audit.log({ user_id: user.id, username: user.username, action: 'user_password_reset', entity: 'user', entity_id: passwordTarget.id });
-    await forceSave();
     setPasswordTarget(null);
   }
 

@@ -30,44 +30,44 @@ export default function TemplateEditor() {
     Audit.log({ user_id: user.id, username: user.username, action, entity: 'template', details });
   }
 
-  function saveSection(data) {
+  async function saveSection(data) {
     if (data.id) {
-      Template.updateSection(data.id, data);
+      await Template.updateSection(data.id, data);
       audit('template_section_update', data.name);
     } else {
-      Template.addSection({ ...data, template_type: templateType });
+      await Template.addSection({ ...data, template_type: templateType });
       audit('template_section_add', data.name);
     }
     setSectionModal(null);
     refresh();
   }
 
-  function deleteSection(s) {
+  async function deleteSection(s) {
     if (!confirm(`Delete the “${s.name}” section and its tasks from the template?`)) return;
-    Template.removeSection(s.id);
+    await Template.removeSection(s.id);
     audit('template_section_delete', s.name);
     refresh();
   }
 
-  function addTask(sectionId, title) {
+  async function addTask(sectionId, title) {
     if (!title.trim()) return;
-    Template.addTask({ section_id: sectionId, title: title.trim(), default_assignee_id: null });
+    await Template.addTask({ section_id: sectionId, title: title.trim(), default_assignee_id: null });
     refresh();
   }
 
-  function updateTaskTitle(task, title) {
+  async function updateTaskTitle(task, title) {
     if (!title.trim() || title === task.title) return;
-    Template.updateTask(task.id, { title: title.trim(), default_assignee_id: task.default_assignee_id });
+    await Template.updateTask(task.id, { title: title.trim(), default_assignee_id: task.default_assignee_id });
     refresh();
   }
 
-  function updateTaskAssignee(task, assigneeId) {
-    Template.updateTask(task.id, { title: task.title, default_assignee_id: assigneeId ? Number(assigneeId) : null });
+  async function updateTaskAssignee(task, assigneeId) {
+    await Template.updateTask(task.id, { title: task.title, default_assignee_id: assigneeId ? Number(assigneeId) : null });
     refresh();
   }
 
-  function deleteTask(task) {
-    Template.removeTask(task.id);
+  async function deleteTask(task) {
+    await Template.removeTask(task.id);
     refresh();
   }
 

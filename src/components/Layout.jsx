@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, CheckSquare, Settings as SettingsIcon,
-  UserCog, ListChecks, KeyRound, HardDrive, LogOut, Moon, Sun, RefreshCw, Download,
+  UserCog, ListChecks, KeyRound, LogOut, Moon, Sun, RefreshCw, Download,
 } from 'lucide-react';
 import { useAuth, isAdmin } from '../contexts/AuthContext.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
@@ -14,7 +14,6 @@ export default function Layout({ children }) {
   const { theme, toggle } = useTheme();
   const navigate = useNavigate();
   const [updateAvailable, setUpdateAvailable] = useState(false);
-  const [localData, setLocalData] = useState(false);
   const admin = isAdmin(user);
   const version = useAppVersion();
   const { status: appUpdate, installUpdate } = useUpdateStatus();
@@ -42,14 +41,6 @@ export default function Layout({ children }) {
       window.removeEventListener('db-merged', onMerged);
       clearInterval(interval);
     };
-  }, []);
-
-  // Detect whether this computer is on its own local database (not shared),
-  // which is the usual reason new employees "don't show up" on other PCs.
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.electronAPI?.isElectron) {
-      window.electronAPI.dbInfo().then((info) => setLocalData(info && !info.isCustom));
-    }
   }, []);
 
   const navClass = ({ isActive }) => 'nav-item' + (isActive ? ' active' : '');
@@ -138,17 +129,6 @@ export default function Layout({ children }) {
             </span>
             <button className="btn btn-sm btn-primary" onClick={() => window.location.reload()}>
               Refresh now
-            </button>
-          </div>
-        )}
-        {admin && localData && (
-          <div className="update-banner warn">
-            <span>
-              <HardDrive size={14} /> This computer is using its own local data, so employees you add
-              here won't appear on other computers. Point everyone at one shared folder to fix this.
-            </span>
-            <button className="btn btn-sm btn-primary" onClick={() => navigate('/settings')}>
-              Set shared folder
             </button>
           </div>
         )}
