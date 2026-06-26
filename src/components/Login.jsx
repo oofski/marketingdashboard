@@ -4,7 +4,7 @@ import { Settings as S } from '../services/db.js';
 import { useUpdateStatus } from '../services/updates.js';
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, sessionExpired } = useAuth();
   const [username, setUsername] = useState(() => localStorage.getItem('ebg_remember_username') || '');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(() => !!localStorage.getItem('ebg_remember_username'));
@@ -36,7 +36,11 @@ export default function Login() {
           <div className="login-sub">Sign in to track new hire onboarding</div>
         </div>
         <form onSubmit={submit}>
-          {error && <div className="login-error">{error}</div>}
+          {error ? (
+            <div className="login-error">{error}</div>
+          ) : sessionExpired ? (
+            <div className="login-error">Your session expired. Please sign in again.</div>
+          ) : null}
           <div className="field">
             <label className="label">Username</label>
             <input

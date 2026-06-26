@@ -19,6 +19,7 @@ export function setToken(t) {
 export function getToken() { return token; }
 
 async function call(path, body) {
+  const hadToken = !!token;
   let res;
   try {
     res = await fetch(API_BASE + path, {
@@ -37,6 +38,13 @@ async function call(path, body) {
   if (res.status === 401) {
     const err = new Error(data.error || 'Your session expired — please sign in again.');
     err.code = 'AUTH';
+    // A 401 on a request that CARRIED a token means the session died mid-use
+    // (expired/rotated token), not a failed login (which is sent without one).
+    // Signal the app to clear the dead session and return to the sign-in screen
+    // instead of dead-ending on a raw "Not authorized" error on every write.
+    if (hadToken) {
+      try { window.dispatchEvent(new CustomEvent('auth-expired')); } catch { /* non-browser env */ }
+    }
     throw err;
   }
   if (!res.ok || data.ok === false) {

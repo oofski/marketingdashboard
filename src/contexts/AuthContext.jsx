@@ -8,6 +8,7 @@ const SESSION_KEY = 'onboarding_tracker_session';
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loaded, setLoaded] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   // On launch, if we still have a saved session + token, load this session's
   // data from the server. If the token is expired/invalid, fall back to login.
@@ -30,7 +31,24 @@ export function AuthProvider({ children }) {
     return () => { active = false; };
   }, []);
 
+  // The API client fires 'auth-expired' whenever a token-bearing request is
+  // rejected (expired/rotated token). Clear the dead session and drop to the
+  // sign-in screen, so a stale token can't dead-end every write with a raw
+  // "Not authorized" error. A silent clear (no audit write — the token is dead).
+  useEffect(() => {
+    function onExpired() {
+      clearMirror();
+      setToken(null);
+      sessionStorage.removeItem(SESSION_KEY);
+      setUser(null);
+      setSessionExpired(true);
+    }
+    window.addEventListener('auth-expired', onExpired);
+    return () => window.removeEventListener('auth-expired', onExpired);
+  }, []);
+
   async function login(username, password) {
+    setSessionExpired(false);
     try {
       const u = await cloudLogin(username, password);
       setUser(u);
@@ -51,7 +69,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loaded }}>
+    <AuthContext.Provider value={{ user, login, logout, loaded, sessionExpired }}>
       {children}
     </AuthContext.Provider>
   );

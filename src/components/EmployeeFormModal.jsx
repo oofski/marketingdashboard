@@ -48,6 +48,9 @@ export default function EmployeeFormModal({ employee, onClose, onSubmit }) {
         manager_id: form.manager_id ? Number(form.manager_id) : null,
       });
     } catch (err) {
+      // An expired session is handled app-wide (redirect to sign-in); don't
+      // flash a dead-end error on a modal that's about to unmount.
+      if (err.code === 'AUTH') return;
       setError(err.message);
       setBusy(false);
     }
