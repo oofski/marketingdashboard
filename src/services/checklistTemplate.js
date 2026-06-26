@@ -7,8 +7,8 @@
 // "My Tasks". Usernames + the default password are shown to the admin in
 // Admin → Staff. Everyone should change their password after first sign-in.
 export const DEFAULT_STAFF = [
-  { full_name: 'Jennifer Garcia', username: 'jgarcia', role: 'manager' },
-  { full_name: 'Sandy Nguyen', username: 'snguyen', role: 'manager' },
+  { full_name: 'Jennifer Garcia', username: 'jgarcia', role: 'admin' },
+  { full_name: 'Sandy Nguyen', username: 'snguyen', role: 'admin' },
   { full_name: 'Alyssa Jacobs', username: 'ajacobs', role: 'staff' },
   { full_name: 'Brittany York', username: 'byork', role: 'staff' },
   { full_name: 'Kali Winter', username: 'kwinter', role: 'staff' },
