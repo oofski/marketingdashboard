@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS employees (
   start_date TEXT,
   email TEXT,
   phone TEXT,
+  employee_code TEXT,
   manager_id INTEGER,
   status TEXT DEFAULT 'onboarding',
   final_day TEXT,

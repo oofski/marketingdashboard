@@ -38,6 +38,15 @@ Your current data lives in the shared `.db` file. Keep the backup from the app
 (**Settings → Download backup**). I'll convert it into a `data.sql` you load
 into D1 the same way as the schema, so nothing is lost.
 
+## Schema migrations
+Fresh installs run `schema.sql` and are fully up to date. When a later app
+version adds a column, there's a one-time SQL file in `migrations/` to run
+against your existing D1 (dashboard Console, or `wrangler d1 execute … --remote`).
+Run each once, in order:
+
+- `migrations/0001_add_employee_code.sql` — adds `employees.employee_code`
+  (the UKG **Employee ID** shown on the Add/Edit employee form).
+
 ## Notes / future hardening
 This uses a pragmatic "trusted-staff" model: any signed-in user can run normal
 reads/writes through the API (password hashes are always protected). If you

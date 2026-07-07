@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Pencil, Trash2, FileDown, Mail, Phone, MapPin, Calendar, User, Building2,
-  UserMinus, X,
+  UserMinus, X, Hash,
 } from 'lucide-react';
 import {
   Employees, Tasks, Users, Settings as S, Audit, normalizeProgress,
@@ -181,6 +181,7 @@ export default function EmployeeDetail() {
             {employee.department ? ` · ${employee.department}` : ''}
           </div>
           <div className="detail-chips">
+            {employee.employee_code && <span className="detail-chip"><Hash size={12} /> ID: {employee.employee_code}</span>}
             <span className="detail-chip"><Calendar size={12} /> {startDateLabel(employee.start_date)}</span>
             {employee.location && <span className="detail-chip"><MapPin size={12} /> {employee.location}</span>}
             {employee.manager_name && <span className="detail-chip"><User size={12} /> Owner: {employee.manager_name}</span>}

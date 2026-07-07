@@ -353,10 +353,46 @@ code {
 .w-full { width: 100%; }
 .empty-state { padding: 32px; text-align: center; color: var(--text-muted); font-size: 13px; }
 
+/* Dashboard hero tiles ---------------------------------------------------- */
+.dash-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; }
+.dash-tile {
+  position: relative; overflow: hidden; color: #fff;
+  border-radius: var(--radius); padding: 16px 18px; box-shadow: var(--shadow);
+  min-height: 106px; display: flex; flex-direction: column; justify-content: space-between;
+}
+.dash-tile-clickable { cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; }
+.dash-tile-clickable:hover { transform: translateY(-2px); box-shadow: var(--shadow-strong); }
+.dash-tile-top { display: flex; align-items: center; justify-content: space-between; position: relative; z-index: 1; }
+.dash-tile-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; opacity: 0.95; }
+.dash-tile-ico { display: flex; opacity: 0.85; }
+.dash-tile-value { font-size: 34px; font-weight: 800; line-height: 1; position: relative; z-index: 1; }
+/* Decorative overlapping circles, echoing the summary-card style. */
+.dash-tile::after { content: ''; position: absolute; right: -22px; top: -22px; width: 96px; height: 96px; border-radius: 50%; background: rgba(255, 255, 255, 0.15); }
+.dash-tile::before { content: ''; position: absolute; right: 20px; bottom: -34px; width: 74px; height: 74px; border-radius: 50%; background: rgba(255, 255, 255, 0.10); }
+.dash-tile-accent { background: linear-gradient(135deg, var(--accent), #6f8f5a); }
+.dash-tile-teal { background: linear-gradient(135deg, #2f7d76, #57a89f); }
+.dash-tile-amber { background: linear-gradient(135deg, #b9802a, #d6a24e); }
+.dash-tile-red { background: linear-gradient(135deg, #b2493b, #cd6d5f); }
+.dash-tile-slate { background: linear-gradient(135deg, #5c6b55, #808e6f); }
+
+/* Onboarding progress ring ------------------------------------------------ */
+.ring-card { display: flex; align-items: center; gap: 22px; }
+.ring { position: relative; width: 132px; height: 132px; flex-shrink: 0; }
+.ring svg { display: block; transform: rotate(-90deg); }
+.ring-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.ring-pct { font-size: 30px; font-weight: 800; line-height: 1; }
+.ring-pct-sub { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 3px; }
+.ring-legend { display: flex; flex-direction: column; gap: 10px; flex: 1; min-width: 0; }
+.ring-legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.ring-dot { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
+.ring-legend-num { font-weight: 700; margin-left: auto; }
+.ring-legend-sep { border-top: 1px solid var(--border); margin: 2px 0; }
+
 @media (max-width: 1100px) {
   .app-shell { grid-template-columns: 64px 1fr; }
   .sidebar-brand-name, .sidebar-brand-sub, .nav-item span, .sidebar-user-name, .sidebar-user-role, .nav-section { display: none; }
   .nav-item { justify-content: center; }
   .grid-cols-4 { grid-template-columns: 1fr 1fr; }
   .grid-cols-2 { grid-template-columns: 1fr; }
+  .dash-tiles { grid-template-columns: 1fr 1fr; }
 }

@@ -38,7 +38,7 @@ function dataSignature(row) {
 // Mirror schema (password_hash is nullable here — the server never sends hashes).
 const MIRROR_SCHEMA = `
 CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, password_hash TEXT, full_name TEXT, role TEXT, email TEXT, active INTEGER, created_at TEXT);
-CREATE TABLE employees (id INTEGER PRIMARY KEY, first_name TEXT, last_name TEXT, position TEXT, department TEXT, location TEXT, start_date TEXT, email TEXT, phone TEXT, manager_id INTEGER, status TEXT, final_day TEXT, notes TEXT, created_by INTEGER, created_at TEXT, updated_at TEXT);
+CREATE TABLE employees (id INTEGER PRIMARY KEY, first_name TEXT, last_name TEXT, position TEXT, department TEXT, location TEXT, start_date TEXT, email TEXT, phone TEXT, employee_code TEXT, manager_id INTEGER, status TEXT, final_day TEXT, notes TEXT, created_by INTEGER, created_at TEXT, updated_at TEXT);
 CREATE TABLE sections (id INTEGER PRIMARY KEY, name TEXT, description TEXT, sort_order INTEGER, done_by_employee INTEGER, template_type TEXT);
 CREATE TABLE template_tasks (id INTEGER PRIMARY KEY, section_id INTEGER, title TEXT, description TEXT, default_assignee_id INTEGER, sort_order INTEGER, active INTEGER);
 CREATE TABLE tasks (id INTEGER PRIMARY KEY, employee_id INTEGER, template_task_id INTEGER, section_name TEXT, section_order INTEGER, done_by_employee INTEGER, track TEXT, title TEXT, assignee_id INTEGER, status TEXT, notes TEXT, sort_order INTEGER, completed_at TEXT, completed_by INTEGER, created_at TEXT, updated_at TEXT);
@@ -207,6 +207,17 @@ async function seedTasksForEmployee(employeeId, track = 'onboarding') {
   }
 }
 
+// The UKG-generated employee ID lives in employees.employee_code, a column
+// added by a one-time D1 migration (see cloud/schema.sql). Writing it is a
+// best-effort separate statement so that — until that column exists on the
+// server — creating or editing an employee still succeeds; the code just isn't
+// stored yet (and starts saving the moment the migration is run).
+async function setEmployeeCodeSafe(id, code) {
+  try {
+    await apiExec('UPDATE employees SET employee_code = ? WHERE id = ?', [code || null, id]);
+  } catch { /* employee_code column not present yet — ignore until migration runs */ }
+}
+
 const PROGRESS_SELECT = `
   COUNT(t.id) AS task_total,
   SUM(CASE WHEN t.status = 'done' THEN 1 ELSE 0 END) AS task_done,
@@ -270,6 +281,7 @@ export const Employees = {
       ]
     );
     const id = res.lastInsertId;
+    if (data.employee_code) await setEmployeeCodeSafe(id, data.employee_code);
     if (buildOnboarding) await seedTasksForEmployee(id, 'onboarding');
     await reloadMirror();
     return id;
@@ -295,6 +307,7 @@ export const Employees = {
         data.manager_id || null, data.status || 'onboarding', data.notes || null, id,
       ]
     );
+    if (data.employee_code !== undefined) await setEmployeeCodeSafe(id, data.employee_code);
     await reloadMirror();
   },
   async setStatus(id, status) {

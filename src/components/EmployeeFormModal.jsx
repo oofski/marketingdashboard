@@ -20,6 +20,7 @@ export default function EmployeeFormModal({ employee, onClose, onSubmit }) {
     start_date: employee?.start_date || '',
     email: employee?.email || '',
     phone: employee?.phone || '',
+    employee_code: employee?.employee_code || '',
     manager_id: employee?.manager_id || '',
     status: employee?.status || 'onboarding',
     notes: employee?.notes || '',
@@ -99,35 +100,44 @@ export default function EmployeeFormModal({ employee, onClose, onSubmit }) {
           </div>
           <div className="field-row">
             <div className="field">
+              <label className="label">Employee ID</label>
+              <input
+                className="input"
+                value={form.employee_code}
+                onChange={(e) => set('employee_code', e.target.value)}
+                placeholder="UKG ID (add once created)"
+              />
+            </div>
+            <div className="field">
               <label className="label">Position</label>
               <input className="input" value={form.position} onChange={(e) => set('position', e.target.value)} placeholder="e.g. Housekeeping" />
             </div>
+          </div>
+          <div className="field-row">
             <div className="field">
               <label className="label">Start date</label>
               <input type="date" className="input" value={form.start_date} onChange={(e) => set('start_date', e.target.value)} />
             </div>
-          </div>
-          <div className="field-row">
             <div className="field">
               <label className="label">Department</label>
               <input className="input" value={form.department} onChange={(e) => set('department', e.target.value)} />
             </div>
+          </div>
+          <div className="field-row">
             <div className="field">
               <label className="label">Location</label>
               <input className="input" value={form.location} onChange={(e) => set('location', e.target.value)} />
             </div>
-          </div>
-          <div className="field-row">
             <div className="field">
               <label className="label">Email</label>
               <input className="input" value={form.email} onChange={(e) => set('email', e.target.value)} />
             </div>
+          </div>
+          <div className="field-row">
             <div className="field">
               <label className="label">Phone</label>
               <input className="input" value={form.phone} onChange={(e) => set('phone', e.target.value)} />
             </div>
-          </div>
-          <div className="field-row">
             <div className="field">
               <label className="label">Onboarding owner</label>
               <select className="select" value={form.manager_id} onChange={(e) => set('manager_id', e.target.value)}>
@@ -137,7 +147,9 @@ export default function EmployeeFormModal({ employee, onClose, onSubmit }) {
                 ))}
               </select>
             </div>
-            {isEdit && (
+          </div>
+          {isEdit && (
+            <div className="field-row">
               <div className="field">
                 <label className="label">Status</label>
                 <select className="select" value={form.status} onChange={(e) => set('status', e.target.value)}>
@@ -146,8 +158,8 @@ export default function EmployeeFormModal({ employee, onClose, onSubmit }) {
                   ))}
                 </select>
               </div>
-            )}
-          </div>
+            </div>
+          )}
           <div className="field">
             <label className="label">Notes</label>
             <textarea className="textarea" value={form.notes} onChange={(e) => set('notes', e.target.value)} />
