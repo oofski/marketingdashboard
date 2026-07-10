@@ -10,9 +10,28 @@ export default function Login() {
   const [remember, setRemember] = useState(() => !!localStorage.getItem('ebg_remember_username'));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [showForgot, setShowForgot] = useState(false);
 
   const company = S.get('company_name') || 'EBG';
   const { status: appUpdate, installUpdate } = useUpdateStatus();
+
+  let adminEmails = [];
+  try { adminEmails = JSON.parse(localStorage.getItem('ebg_admin_emails') || '[]'); } catch { adminEmails = []; }
+
+  function emailAdmin() {
+    const subject = 'Password reset request — Onboarding Tracker';
+    const body = [
+      'Hi,',
+      '',
+      "I can't sign in to the Onboarding Tracker and need my password reset.",
+      `Username: ${username.trim() || '(please fill in)'}`,
+      '',
+      'Thank you!',
+    ].join('\n');
+    const url = `mailto:${adminEmails.join(',')}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    if (typeof window !== 'undefined' && window.electronAPI?.openExternal) window.electronAPI.openExternal(url);
+    else if (typeof window !== 'undefined') window.open(url, '_blank');
+  }
 
   async function submit(e) {
     e.preventDefault();
@@ -66,6 +85,25 @@ export default function Login() {
           <button type="submit" className="btn btn-primary w-full" disabled={busy}>
             {busy ? 'Signing in…' : 'Sign in'}
           </button>
+          <button
+            type="button"
+            onClick={() => setShowForgot((v) => !v)}
+            style={{ display: 'block', margin: '12px auto 0', background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: 13, textDecoration: 'underline' }}
+          >
+            Forgot password?
+          </button>
+          {showForgot && (
+            <div className="login-hint" style={{ textAlign: 'left' }}>
+              Ask an administrator to reset your password — they can do it in seconds
+              from the Staff screen and will give you a temporary password. After you
+              sign in, change it any time under <strong>My Account</strong>.
+              {adminEmails.length > 0 && (
+                <button type="button" className="btn btn-sm w-full" style={{ marginTop: 10 }} onClick={emailAdmin}>
+                  Email an admin
+                </button>
+              )}
+            </div>
+          )}
         </form>
         {appUpdate.state === 'downloaded' && (
           <div className="update-banner" style={{ marginTop: 16 }}>

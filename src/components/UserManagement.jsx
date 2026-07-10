@@ -48,7 +48,7 @@ export default function UserManagement() {
     if (!passwordTarget) return;
     await Users.updatePassword(passwordTarget.id, newPassword);
     Audit.log({ user_id: user.id, username: user.username, action: 'user_password_reset', entity: 'user', entity_id: passwordTarget.id });
-    setPasswordTarget(null);
+    // The modal stays open to show the temporary password to share; it closes on "Done".
   }
 
   return (
@@ -203,16 +203,38 @@ function UserFormModal({ target, onClose, onSubmit }) {
   );
 }
 
+// A readable temporary password (no ambiguous characters like 0/O/1/l/I).
+function genTempPassword() {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789abcdefghijkmnpqrstuvwxyz';
+  const arr = new Uint32Array(10);
+  crypto.getRandomValues(arr);
+  return Array.from(arr, (n) => chars[n % chars.length]).join('');
+}
+
 function PasswordResetModal({ target, onClose, onSubmit }) {
-  const [password, setPassword] = useState('');
+  const [password, setPassword] = useState(genTempPassword);
   const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   async function submit(e) {
     e.preventDefault();
     if (password.length < 4) return;
     setBusy(true);
-    await onSubmit(password);
-    setBusy(false);
+    try {
+      await onSubmit(password);
+      setDone(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function copy() {
+    try {
+      navigator.clipboard?.writeText(password);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch { /* clipboard unavailable */ }
   }
 
   return (
@@ -222,18 +244,44 @@ function PasswordResetModal({ target, onClose, onSubmit }) {
           <h2 className="modal-title">Reset password — {target.full_name}</h2>
           <button className="btn btn-ghost" onClick={onClose}><X size={16} /></button>
         </div>
-        <form onSubmit={submit}>
-          <div className="field">
-            <label className="label">New password</label>
-            <input type="password" className="input" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus />
+        {done ? (
+          <div>
+            <div className="alert alert-info">
+              Password reset. Share this temporary password with {target.full_name} — they can
+              change it any time under <strong>My Account</strong> after signing in.
+            </div>
+            <div className="field">
+              <label className="label">Temporary password</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input className="input" readOnly value={password} style={{ fontFamily: 'monospace', fontSize: 16 }} />
+                <button type="button" className="btn" onClick={copy}>{copied ? 'Copied!' : 'Copy'}</button>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-primary" onClick={onClose}>Done</button>
+            </div>
           </div>
-          <div className="modal-footer">
-            <button type="button" className="btn" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={busy || password.length < 4}>
-              {busy ? 'Saving…' : 'Reset password'}
-            </button>
-          </div>
-        </form>
+        ) : (
+          <form onSubmit={submit}>
+            <div className="alert alert-info">
+              A temporary password is filled in below — use it as-is or type your own, then share it
+              with {target.full_name}.
+            </div>
+            <div className="field">
+              <label className="label">Temporary password</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input className="input" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus style={{ fontFamily: 'monospace' }} />
+                <button type="button" className="btn" onClick={() => setPassword(genTempPassword())}>Regenerate</button>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn" onClick={onClose}>Cancel</button>
+              <button type="submit" className="btn btn-primary" disabled={busy || password.length < 4}>
+                {busy ? 'Saving…' : 'Reset password'}
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );
