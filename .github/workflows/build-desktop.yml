@@ -1,0 +1,63 @@
+name: Build desktop apps
+
+# Pushing to this branch builds installers as downloadable artifacts.
+# If the commit message contains "[release]", it ALSO publishes a public
+# GitHub Release (permanent download link + auto-update feed) with both the
+# Windows (.exe) and macOS (.dmg) builds attached to the same release.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - claude/blissful-albattani-2fzSF
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      # Run one at a time so the first job creates the release and the second
+      # just adds its installer to it (avoids a race on release creation).
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact_name: OnboardingTracker-Windows
+            artifact_path: release/*.exe
+          - os: macos-latest
+            artifact_name: OnboardingTracker-macOS
+            artifact_path: release/*.dmg
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build installer (artifact only)
+        if: ${{ !contains(github.event.head_commit.message, '[release]') }}
+        run: npm run dist
+
+      - name: Build and publish release
+        if: ${{ contains(github.event.head_commit.message, '[release]') }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # No Apple Developer certificate, so don't try to discover one — the
+          # macOS app ships unsigned (users allow it once via Gatekeeper).
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+        run: npm run release
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_path }}
+          if-no-files-found: error

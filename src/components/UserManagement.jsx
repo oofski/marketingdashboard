@@ -1,12 +1,18 @@
 import { useEffect, useState } from 'react';
-import { UserPlus, Trash2, KeyRound, X } from 'lucide-react';
+import { UserPlus, Trash2, KeyRound, Pencil, X } from 'lucide-react';
 import { Users, Audit } from '../services/db.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
+
+const ROLES = [
+  { value: 'staff', label: 'Staff', hint: 'Works their own tasks; can view everyone.' },
+  { value: 'manager', label: 'Manager', hint: 'Can add & edit employees and reassign tasks.' },
+  { value: 'admin', label: 'Administrator', hint: 'Full access incl. settings, staff & template.' },
+];
 
 export default function UserManagement() {
   const { user } = useAuth();
   const [users, setUsers] = useState([]);
-  const [showForm, setShowForm] = useState(false);
+  const [formTarget, setFormTarget] = useState(null); // null | 'new' | userObj
   const [passwordTarget, setPasswordTarget] = useState(null);
 
   function refresh() {
@@ -17,28 +23,23 @@ export default function UserManagement() {
     refresh();
   }, []);
 
-  if (user.role !== 'admin') {
-    return (
-      <div className="empty-state">
-        Administrators only. Sign in as an admin to manage users.
-      </div>
-    );
-  }
-
-  async function handleCreate(data) {
-    if (Users.findByUsername(data.username)) {
-      throw new Error('Username already exists');
+  async function handleSubmit(data) {
+    if (data.id) {
+      await Users.update(data.id, data);
+      Audit.log({ user_id: user.id, username: user.username, action: 'user_update', entity: 'user', entity_id: data.id });
+    } else {
+      if (Users.findByUsername(data.username)) throw new Error('That username already exists.');
+      const id = await Users.create(data);
+      Audit.log({ user_id: user.id, username: user.username, action: 'user_create', entity: 'user', entity_id: id });
     }
-    const id = await Users.create(data);
-    Audit.log({ user_id: user.id, username: user.username, action: 'user_create', entity: 'user', entity_id: id });
-    setShowForm(false);
+    setFormTarget(null);
     refresh();
   }
 
-  function handleDelete(u) {
+  async function handleDelete(u) {
     if (u.id === user.id) return;
-    if (!confirm(`Delete user ${u.username}?`)) return;
-    Users.remove(u.id);
+    if (!confirm(`Remove ${u.full_name}? Their task assignments will become unassigned.`)) return;
+    await Users.remove(u.id);
     Audit.log({ user_id: user.id, username: user.username, action: 'user_delete', entity: 'user', entity_id: u.id });
     refresh();
   }
@@ -47,50 +48,53 @@ export default function UserManagement() {
     if (!passwordTarget) return;
     await Users.updatePassword(passwordTarget.id, newPassword);
     Audit.log({ user_id: user.id, username: user.username, action: 'user_password_reset', entity: 'user', entity_id: passwordTarget.id });
-    setPasswordTarget(null);
+    // The modal stays open to show the temporary password to share; it closes on "Done".
   }
 
   return (
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">User Management</h1>
-          <div className="page-subtitle">{users.length} active accounts</div>
+          <h1 className="page-title">Staff</h1>
+          <div className="page-subtitle">{users.length} accounts — these are the people tasks can be assigned to.</div>
         </div>
         <div className="page-actions">
-          <button className="btn btn-primary" onClick={() => setShowForm(true)}>
-            <UserPlus size={14} /> Add User
+          <button className="btn btn-primary" onClick={() => setFormTarget('new')}>
+            <UserPlus size={14} /> Add staff
           </button>
         </div>
       </div>
 
-      <div className="card">
+      <div className="alert alert-info mb-4">
+        New staff accounts start with the password <strong>welcome123</strong>. Ask each person to sign in and change it.
+      </div>
+
+      <div className="card" style={{ padding: 0 }}>
         <table className="table">
           <thead>
             <tr>
+              <th>Name</th>
               <th>Username</th>
-              <th>Full Name</th>
+              <th>Email</th>
               <th>Role</th>
-              <th>Created</th>
+              <th>Status</th>
               <th style={{ textAlign: 'right' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {users.map((u) => (
               <tr key={u.id}>
-                <td><strong>{u.username}</strong></td>
-                <td>{u.full_name}</td>
+                <td><strong>{u.full_name}</strong></td>
+                <td className="text-muted">{u.username}</td>
+                <td className="text-muted">{u.email || '—'}</td>
                 <td><span className="badge badge-accent">{u.role}</span></td>
-                <td className="text-muted">{new Date(u.created_at).toLocaleDateString()}</td>
-                <td style={{ textAlign: 'right' }}>
-                  <button className="btn btn-sm" onClick={() => setPasswordTarget(u)}>
-                    <KeyRound size={12} /> Reset Password
-                  </button>{' '}
-                  <button
-                    className="btn btn-sm btn-danger"
-                    onClick={() => handleDelete(u)}
-                    disabled={u.id === user.id}
-                  >
+                <td>
+                  {u.active ? <span className="badge badge-success">Active</span> : <span className="badge">Inactive</span>}
+                </td>
+                <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                  <button className="btn btn-sm" onClick={() => setFormTarget(u)}><Pencil size={12} /></button>{' '}
+                  <button className="btn btn-sm" onClick={() => setPasswordTarget(u)}><KeyRound size={12} /> Password</button>{' '}
+                  <button className="btn btn-sm btn-danger" onClick={() => handleDelete(u)} disabled={u.id === user.id}>
                     <Trash2 size={12} />
                   </button>
                 </td>
@@ -100,33 +104,39 @@ export default function UserManagement() {
         </table>
       </div>
 
-      {showForm && (
+      {formTarget && (
         <UserFormModal
-          onClose={() => setShowForm(false)}
-          onSubmit={handleCreate}
+          target={formTarget === 'new' ? null : formTarget}
+          onClose={() => setFormTarget(null)}
+          onSubmit={handleSubmit}
         />
       )}
       {passwordTarget && (
-        <PasswordResetModal
-          target={passwordTarget}
-          onClose={() => setPasswordTarget(null)}
-          onSubmit={handleChangePassword}
-        />
+        <PasswordResetModal target={passwordTarget} onClose={() => setPasswordTarget(null)} onSubmit={handleChangePassword} />
       )}
     </div>
   );
 }
 
-function UserFormModal({ onClose, onSubmit }) {
-  const [form, setForm] = useState({ username: '', full_name: '', password: '', role: 'doctor' });
+function UserFormModal({ target, onClose, onSubmit }) {
+  const isEdit = !!target;
+  const [form, setForm] = useState({
+    id: target?.id,
+    username: target?.username || '',
+    full_name: target?.full_name || '',
+    email: target?.email || '',
+    password: 'welcome123',
+    role: target?.role || 'staff',
+    active: target ? !!target.active : true,
+  });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
   async function submit(e) {
     e.preventDefault();
     setError('');
-    if (!form.username.trim() || !form.password.trim() || !form.full_name.trim()) {
-      setError('All fields are required.');
+    if (!form.full_name.trim() || (!isEdit && !form.username.trim())) {
+      setError('Name and username are required.');
       return;
     }
     setBusy(true);
@@ -134,7 +144,6 @@ function UserFormModal({ onClose, onSubmit }) {
       await onSubmit(form);
     } catch (err) {
       setError(err.message);
-    } finally {
       setBusy(false);
     }
   }
@@ -143,35 +152,49 @@ function UserFormModal({ onClose, onSubmit }) {
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2 className="modal-title">Add User</h2>
+          <h2 className="modal-title">{isEdit ? 'Edit staff member' : 'Add staff member'}</h2>
           <button className="btn btn-ghost" onClick={onClose}><X size={16} /></button>
         </div>
         <form onSubmit={submit}>
           {error && <div className="login-error">{error}</div>}
           <div className="field">
-            <label className="label">Full Name</label>
-            <input className="input" value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} />
+            <label className="label">Full name</label>
+            <input className="input" value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} autoFocus />
           </div>
-          <div className="field">
-            <label className="label">Username</label>
-            <input className="input" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} />
-          </div>
-          <div className="field">
-            <label className="label">Password</label>
-            <input type="password" className="input" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
-          </div>
+          {!isEdit && (
+            <div className="field">
+              <label className="label">Username</label>
+              <input className="input" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value.trim() })} />
+            </div>
+          )}
           <div className="field">
             <label className="label">Role</label>
             <select className="select" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
-              <option value="doctor">Doctor</option>
-              <option value="staff">Staff</option>
-              <option value="admin">Administrator</option>
+              {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
             </select>
+            <div className="text-xs text-muted mt-2">{ROLES.find((r) => r.value === form.role)?.hint}</div>
           </div>
+          <div className="field">
+            <label className="label">Company email</label>
+            <input
+              className="input"
+              type="email"
+              placeholder="name@company.com"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value.trim() })}
+            />
+            <div className="text-xs text-muted mt-2">Used for the “email the team” notifications when someone is onboarded or offboarded.</div>
+          </div>
+          {isEdit && (
+            <label className="check-inline">
+              <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
+              Active (can sign in)
+            </label>
+          )}
           <div className="modal-footer">
             <button type="button" className="btn" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={busy}>
-              {busy ? 'Creating…' : 'Create User'}
+              {busy ? 'Saving…' : isEdit ? 'Save' : 'Create account'}
             </button>
           </div>
         </form>
@@ -180,43 +203,85 @@ function UserFormModal({ onClose, onSubmit }) {
   );
 }
 
+// A readable temporary password (no ambiguous characters like 0/O/1/l/I).
+function genTempPassword() {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789abcdefghijkmnpqrstuvwxyz';
+  const arr = new Uint32Array(10);
+  crypto.getRandomValues(arr);
+  return Array.from(arr, (n) => chars[n % chars.length]).join('');
+}
+
 function PasswordResetModal({ target, onClose, onSubmit }) {
-  const [password, setPassword] = useState('');
+  const [password, setPassword] = useState(genTempPassword);
   const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   async function submit(e) {
     e.preventDefault();
     if (password.length < 4) return;
     setBusy(true);
-    await onSubmit(password);
-    setBusy(false);
+    try {
+      await onSubmit(password);
+      setDone(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function copy() {
+    try {
+      navigator.clipboard?.writeText(password);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch { /* clipboard unavailable */ }
   }
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2 className="modal-title">Reset password for {target.username}</h2>
+          <h2 className="modal-title">Reset password — {target.full_name}</h2>
           <button className="btn btn-ghost" onClick={onClose}><X size={16} /></button>
         </div>
-        <form onSubmit={submit}>
-          <div className="field">
-            <label className="label">New password</label>
-            <input
-              type="password"
-              className="input"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoFocus
-            />
+        {done ? (
+          <div>
+            <div className="alert alert-info">
+              Password reset. Share this temporary password with {target.full_name} — they can
+              change it any time under <strong>My Account</strong> after signing in.
+            </div>
+            <div className="field">
+              <label className="label">Temporary password</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input className="input" readOnly value={password} style={{ fontFamily: 'monospace', fontSize: 16 }} />
+                <button type="button" className="btn" onClick={copy}>{copied ? 'Copied!' : 'Copy'}</button>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-primary" onClick={onClose}>Done</button>
+            </div>
           </div>
-          <div className="modal-footer">
-            <button type="button" className="btn" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={busy || password.length < 4}>
-              {busy ? 'Saving…' : 'Reset Password'}
-            </button>
-          </div>
-        </form>
+        ) : (
+          <form onSubmit={submit}>
+            <div className="alert alert-info">
+              A temporary password is filled in below — use it as-is or type your own, then share it
+              with {target.full_name}.
+            </div>
+            <div className="field">
+              <label className="label">Temporary password</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input className="input" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus style={{ fontFamily: 'monospace' }} />
+                <button type="button" className="btn" onClick={() => setPassword(genTempPassword())}>Regenerate</button>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn" onClick={onClose}>Cancel</button>
+              <button type="submit" className="btn btn-primary" disabled={busy || password.length < 4}>
+                {busy ? 'Saving…' : 'Reset password'}
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );

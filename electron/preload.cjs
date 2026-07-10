@@ -3,9 +3,20 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
   readDb: () => ipcRenderer.invoke('db:read'),
   writeDb: (data) => ipcRenderer.invoke('db:write', data),
-  saveDoc: (filename, data) => ipcRenderer.invoke('doc:save', { filename, data }),
-  readDoc: (filename) => ipcRenderer.invoke('doc:read', filename),
+  dbStat: () => ipcRenderer.invoke('db:stat'),
+  dbInfo: () => ipcRenderer.invoke('db:info'),
+  chooseDataFolder: () => ipcRenderer.invoke('db:chooseFolder'),
+  useDefaultFolder: () => ipcRenderer.invoke('db:useDefault'),
   exportDoc: (filename, data) => ipcRenderer.invoke('doc:export', { filename, data }),
   appInfo: () => ipcRenderer.invoke('app:info'),
+  openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
+  getUpdateStatus: () => ipcRenderer.invoke('update:get'),
+  checkForUpdates: () => ipcRenderer.invoke('update:check'),
+  installUpdate: () => ipcRenderer.invoke('update:install'),
+  onUpdateStatus: (cb) => {
+    const handler = (_e, status) => cb(status);
+    ipcRenderer.on('update:status', handler);
+    return () => ipcRenderer.removeListener('update:status', handler);
+  },
   isElectron: true,
 });

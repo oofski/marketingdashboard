@@ -1,11 +1,15 @@
 node_modules/
 dist/
 dist-electron/
+release/
 *.log
 .DS_Store
 .env
 .env.local
 .vscode/
 .idea/
-clinic-data.db
-documents/
+*.db
+onboarding-data.db
+# Migration dumps — contain employee data + password hashes, never commit them.
+cloud/data.sql
+cloud/seed.sql

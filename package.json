@@ -1,7 +1,7 @@
 {
-  "name": "dental-clinic-manager",
-  "version": "0.1.0",
-  "description": "Desktop application for dental clinic patient management, consent forms, tooth charting and treatment reporting",
+  "name": "onboarding-tracker",
+  "version": "0.5.8",
+  "description": "Desktop app to track employee onboarding checklists across a team, with per-staff task assignments and a shared local database.",
   "main": "electron/main.js",
   "type": "module",
   "scripts": {
@@ -10,25 +10,60 @@
     "preview": "vite preview",
     "electron": "electron .",
     "electron:dev": "concurrently -k \"vite\" \"wait-on http://localhost:5173 && electron .\"",
-    "start": "npm run electron:dev"
+    "start": "npm run electron:dev",
+    "dist": "vite build && electron-builder --publish never",
+    "dist:win": "vite build && electron-builder --win --publish never",
+    "dist:mac": "vite build && electron-builder --mac --publish never",
+    "release": "vite build && electron-builder --publish always",
+    "release:win": "vite build && electron-builder --win --publish always",
+    "release:mac": "vite build && electron-builder --mac --publish always"
   },
-  "keywords": ["dental", "clinic", "patient-management", "electron", "react"],
+  "keywords": ["onboarding", "checklist", "hr", "crm", "electron", "react"],
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "electron-updater": "^6.3.9",
     "jspdf": "^2.5.2",
     "lucide-react": "^0.469.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.0",
-    "signature_pad": "^5.0.4",
     "sql.js": "^1.12.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
     "concurrently": "^9.1.0",
     "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
     "vite": "^5.4.11",
     "wait-on": "^8.0.1"
+  },
+  "build": {
+    "appId": "com.company.onboardingtracker",
+    "productName": "Onboarding Tracker",
+    "files": ["dist/**/*", "electron/**/*", "package.json"],
+    "directories": { "output": "release" },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "oofski",
+        "repo": "marketingdashboard",
+        "releaseType": "release"
+      }
+    ],
+    "win": {
+      "target": ["nsis"],
+      "artifactName": "OnboardingTracker-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "mac": {
+      "target": [{ "target": "dmg", "arch": "universal" }],
+      "category": "public.app-category.productivity",
+      "artifactName": "OnboardingTracker-Mac-${version}.${ext}"
+    }
   }
 }

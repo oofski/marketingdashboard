@@ -1,137 +1,186 @@
-import { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Users, CalendarDays, FileText, ClipboardList, AlertTriangle, Plus } from 'lucide-react';
-import { Patients, Visits, Documents, Audit, run } from '../services/db.js';
+import { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Users, CheckCircle2, ClipboardList, AlertTriangle, ArrowRight, UserMinus } from 'lucide-react';
+import { Employees, Tasks } from '../services/db.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import { formatDate, startDateLabel } from '../services/format.js';
+import ProgressBar from './ProgressBar.jsx';
 
 export default function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [stats, setStats] = useState({ patients: 0, todayVisits: 0, openVisits: 0, docs: 0 });
-  const [queue, setQueue] = useState([]);
-  const [recentDocs, setRecentDocs] = useState([]);
 
-  useEffect(() => {
-    const patients = run('SELECT COUNT(*) as c FROM patients')[0]?.c || 0;
-    const todayVisits = run("SELECT COUNT(*) as c FROM visits WHERE date(visit_date) = date('now')")[0]?.c || 0;
-    const openVisits = run("SELECT COUNT(*) as c FROM visits WHERE status = 'open'")[0]?.c || 0;
-    const docs = run('SELECT COUNT(*) as c FROM documents')[0]?.c || 0;
-    setStats({ patients, todayVisits, openVisits, docs });
-    setQueue(Visits.todayQueue());
-    setRecentDocs(Documents.recent(6));
-  }, []);
-
-  function openVisit(v) {
-    navigate(`/patients/${v.patient_id}/visits/${v.id}`);
-  }
+  const {
+    active, offboardingCount, completedCount, myOpen, overdue, myTasks,
+    overallPct, totalDone, totalRemaining,
+  } = useMemo(() => {
+    const all = Employees.listWithProgress();
+    // Someone who's being offboarded shows as offboarding only — never counted
+    // (or listed) as an active onboarding, so one person can't show both states.
+    const offboarding = all.filter((e) => e.offboarding_count > 0);
+    const activeList = all.filter((e) => e.status === 'onboarding' && !e.offboarding_count);
+    const done = activeList.reduce((s, e) => s + (e.done || 0), 0);
+    const applicable = activeList.reduce((s, e) => s + (e.applicable || 0), 0);
+    return {
+      active: activeList,
+      offboardingCount: offboarding.length,
+      completedCount: all.filter((e) => e.status === 'completed').length,
+      myOpen: Tasks.openCountForUser(user.id),
+      overdue: Tasks.overdueCount(),
+      myTasks: Tasks.forAssignee(user.id).filter((t) => t.status === 'pending').slice(0, 6),
+      overallPct: applicable > 0 ? Math.round((done / applicable) * 100) : 0,
+      totalDone: done,
+      totalRemaining: Math.max(0, applicable - done),
+    };
+  }, [user.id]);
 
   return (
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Welcome, Dr. {user.full_name}</h1>
-          <div className="page-subtitle">Here's what's happening at the clinic today.</div>
-        </div>
-        <div className="page-actions">
-          <Link to="/patients" className="btn btn-primary">
-            <Plus size={16} /> New Patient Visit
-          </Link>
+          <h1 className="page-title">Dashboard</h1>
+          <div className="page-subtitle">
+            Welcome back, {user.full_name.split(' ')[0]} — here's where onboarding stands today.
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-4 mb-4">
-        <StatCard icon={<Users size={18} />} label="Total Patients" value={stats.patients} />
-        <StatCard icon={<CalendarDays size={18} />} label="Today's Visits" value={stats.todayVisits} />
-        <StatCard icon={<ClipboardList size={18} />} label="Open Visits" value={stats.openVisits} />
-        <StatCard icon={<FileText size={18} />} label="Documents Archived" value={stats.docs} />
+      <div className="dash-tiles">
+        <Tile
+          variant="accent" icon={<Users size={18} />}
+          label="Active onboardings" value={active.length}
+          onClick={() => navigate('/employees')}
+        />
+        <Tile variant="amber" icon={<UserMinus size={18} />} label="Offboarding" value={offboardingCount} />
+        <Tile
+          variant="teal" icon={<ClipboardList size={18} />}
+          label="My open tasks" value={myOpen}
+          onClick={() => navigate('/my-tasks')}
+        />
+        <Tile
+          variant={overdue > 0 ? 'red' : 'slate'} icon={<AlertTriangle size={18} />}
+          label="Overdue tasks" value={overdue}
+          onClick={() => navigate('/overdue')}
+        />
       </div>
 
       <div className="grid grid-cols-2">
         <div className="card">
           <div className="card-header">
-            <div>
-              <h3 className="card-title">Today's Patient Queue</h3>
-              <div className="card-subtitle">{queue.length} visits scheduled or in progress</div>
+            <h3 className="card-title">Onboarding progress</h3>
+          </div>
+          <div className="ring-card">
+            <ProgressRing percent={overallPct} />
+            <div className="ring-legend">
+              <div className="ring-legend-item">
+                <span className="ring-dot" style={{ background: 'var(--accent)' }} />
+                Tasks done <span className="ring-legend-num">{totalDone}</span>
+              </div>
+              <div className="ring-legend-item">
+                <span className="ring-dot" style={{ background: 'var(--bg-elev-2)', border: '1px solid var(--border-strong)' }} />
+                Remaining <span className="ring-legend-num">{totalRemaining}</span>
+              </div>
+              <div className="ring-legend-sep" />
+              <div className="ring-legend-item">
+                <CheckCircle2 size={14} style={{ color: 'var(--success)' }} />
+                Completed onboardings <span className="ring-legend-num">{completedCount}</span>
+              </div>
             </div>
           </div>
-          {queue.length === 0 ? (
-            <div className="empty-state">No visits today. Use the Patients page to start one.</div>
-          ) : (
-            <table className="table table-clickable">
-              <thead>
-                <tr>
-                  <th>Patient</th>
-                  <th>Time</th>
-                  <th>Status</th>
-                  <th>Alerts</th>
-                </tr>
-              </thead>
-              <tbody>
-                {queue.map((v) => (
-                  <tr key={v.id} onClick={() => openVisit(v)}>
-                    <td><strong>{v.first_name} {v.last_name}</strong></td>
-                    <td>{new Date(v.visit_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
-                    <td>
-                      <span className={'badge ' + (v.status === 'completed' ? 'badge-success' : 'badge-accent')}>
-                        {v.status}
-                      </span>
-                    </td>
-                    <td>
-                      {v.allergies && (
-                        <span className="badge badge-danger" title={v.allergies}>
-                          <AlertTriangle size={11} style={{ marginRight: 4 }} /> Allergies
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
         </div>
 
         <div className="card">
           <div className="card-header">
-            <div>
-              <h3 className="card-title">Recent Documents</h3>
-              <div className="card-subtitle">Latest generated reports and forms</div>
-            </div>
-            <Link to="/archive" className="btn btn-sm">View all</Link>
+            <h3 className="card-title">My next tasks</h3>
+            <button className="btn btn-sm" onClick={() => navigate('/my-tasks')}>
+              My Tasks <ArrowRight size={13} />
+            </button>
           </div>
-          {recentDocs.length === 0 ? (
-            <div className="empty-state">No documents generated yet.</div>
-          ) : (
-            <div>
-              {recentDocs.map((d) => (
-                <div key={d.id} className="note-item" style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <div>
-                    <div style={{ fontWeight: 600 }}>{d.first_name} {d.last_name}</div>
-                    <div className="note-meta">
-                      <span className="badge">{d.doc_type}</span>
-                      {d.signed ? <span className="badge badge-success">Signed</span> : null}
-                      <span>{new Date(d.created_at).toLocaleString()}</span>
-                    </div>
-                  </div>
-                  <Link to={`/patients/${d.patient_id}`} className="btn btn-sm">Open</Link>
-                </div>
-              ))}
-            </div>
+          {myTasks.length === 0 && (
+            <div className="empty-state">You're all caught up — no open tasks assigned to you.</div>
           )}
+          {myTasks.map((t) => (
+            <div key={t.id} className="list-row" onClick={() => navigate(`/employees/${t.employee_id}`)}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="list-row-title">{t.title}</div>
+                <div className="list-row-sub">
+                  {t.first_name} {t.last_name} · {t.section_name}
+                </div>
+              </div>
+              <div className="text-xs text-muted">{formatDate(t.start_date)}</div>
+            </div>
+          ))}
         </div>
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <h3 className="card-title">In progress</h3>
+          <button className="btn btn-sm" onClick={() => navigate('/employees')}>
+            View all <ArrowRight size={13} />
+          </button>
+        </div>
+        {active.length === 0 && (
+          <div className="empty-state">No active onboardings. Add an employee to begin.</div>
+        )}
+        {active.map((e) => (
+          <div key={e.id} className="list-row" onClick={() => navigate(`/employees/${e.id}`)}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="list-row-title">
+                {e.first_name} {e.last_name}
+              </div>
+              <div className="list-row-sub">
+                {e.position || 'No position'} · {startDateLabel(e.start_date)}
+              </div>
+            </div>
+            <div style={{ width: 160 }}>
+              <ProgressBar percent={e.percent} />
+              <div className="text-xs text-muted text-right">
+                {e.task_done}/{e.applicable} done
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
-function StatCard({ icon, label, value, sub }) {
+function Tile({ variant, icon, label, value, onClick }) {
   return (
-    <div className="stat-card">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div className="stat-label">{label}</div>
-        <div style={{ color: 'var(--accent)' }}>{icon}</div>
+    <div
+      className={'dash-tile dash-tile-' + variant + (onClick ? ' dash-tile-clickable' : '')}
+      onClick={onClick}
+    >
+      <div className="dash-tile-top">
+        <span className="dash-tile-label">{label}</span>
+        <span className="dash-tile-ico">{icon}</span>
       </div>
-      <div className="stat-value">{value}</div>
-      {sub && <div className="stat-sub">{sub}</div>}
+      <div className="dash-tile-value">{value}</div>
+    </div>
+  );
+}
+
+// A simple SVG donut for overall onboarding completion. One accent arc on a
+// recessive track — a single-value meter, so no legend box is needed here.
+function ProgressRing({ percent }) {
+  const r = 52;
+  const circ = 2 * Math.PI * r;
+  const pct = Math.min(100, Math.max(0, percent || 0));
+  const offset = circ * (1 - pct / 100);
+  return (
+    <div className="ring">
+      <svg width="132" height="132" viewBox="0 0 120 120">
+        <circle cx="60" cy="60" r={r} fill="none" stroke="var(--bg-elev-2)" strokeWidth="12" />
+        <circle
+          cx="60" cy="60" r={r} fill="none" stroke="var(--accent)" strokeWidth="12"
+          strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={offset}
+        />
+      </svg>
+      <div className="ring-center">
+        <div className="ring-pct">{pct}%</div>
+        <div className="ring-pct-sub">complete</div>
+      </div>
     </div>
   );
 }
