@@ -55,9 +55,26 @@ const MIRROR_FETCH = [
   ['tasks', 'SELECT * FROM tasks'],
 ];
 
+// Column names this mirror table actually has, so we only insert those.
+function mirrorColumns(database, table) {
+  const stmt = database.prepare(`PRAGMA table_info(${table})`);
+  const names = new Set();
+  try {
+    while (stmt.step()) names.add(stmt.getAsObject().name);
+  } finally {
+    stmt.free();
+  }
+  return names;
+}
+
 function insertRows(database, table, rows) {
   if (!rows || rows.length === 0) return;
-  const cols = Object.keys(rows[0]);
+  // Only insert columns this mirror knows about. If the cloud database gains a
+  // NEW column later, an app build that predates it simply ignores it instead
+  // of crashing on load — so a schema change can never lock older apps out.
+  const known = mirrorColumns(database, table);
+  const cols = Object.keys(rows[0]).filter((c) => known.has(c));
+  if (cols.length === 0) return;
   const stmt = database.prepare(
     `INSERT INTO ${table} (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`
   );
@@ -85,6 +102,21 @@ export async function reloadMirror() {
   if (db) { try { db.free(); } catch { /* ignore */ } }
   db = fresh;
   try { lastSignature = dataSignature(run(SIGNATURE_SQL)[0]); } catch { /* ignore */ }
+  cacheAdminEmails();
+}
+
+// Remember the admin/manager contact emails locally so the sign-in screen's
+// "Forgot password?" panel can offer to email them — the mirror isn't loaded
+// before login, so we stash them here after each authenticated refresh.
+function cacheAdminEmails() {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    const rows = run(
+      "SELECT email FROM users WHERE active = 1 AND role IN ('admin', 'manager') AND email IS NOT NULL AND email != '' ORDER BY full_name"
+    );
+    const emails = rows.map((r) => r.email);
+    if (emails.length) localStorage.setItem('ebg_admin_emails', JSON.stringify(emails));
+  } catch { /* ignore */ }
 }
 
 export function isLoaded() { return !!db; }
@@ -207,15 +239,29 @@ async function seedTasksForEmployee(employeeId, track = 'onboarding') {
   }
 }
 
-// The UKG-generated employee ID lives in employees.employee_code, a column
-// added by a one-time D1 migration (see cloud/schema.sql). Writing it is a
-// best-effort separate statement so that — until that column exists on the
-// server — creating or editing an employee still succeeds; the code just isn't
-// stored yet (and starts saving the moment the migration is run).
-async function setEmployeeCodeSafe(id, code) {
-  try {
-    await apiExec('UPDATE employees SET employee_code = ? WHERE id = ?', [code || null, id]);
-  } catch { /* employee_code column not present yet — ignore until migration runs */ }
+// The Employee ID (e.g. the UKG-generated code) is stored as ONE JSON map in the
+// existing settings table — { "<employeeId>": "<code>" } — so the feature needs
+// NO database column and NO migration (same approach as the section library).
+// Reads come synchronously from the mirror; writes go through Settings.set.
+const EMP_CODES_KEY = 'employee_codes';
+
+function readEmployeeCodes() {
+  const raw = run('SELECT value FROM settings WHERE key = ?', [EMP_CODES_KEY])[0]?.value;
+  if (raw) {
+    try {
+      const map = JSON.parse(raw);
+      if (map && typeof map === 'object') return map;
+    } catch { /* corrupt value — treat as empty */ }
+  }
+  return {};
+}
+
+async function writeEmployeeCode(id, code) {
+  const map = readEmployeeCodes();
+  const trimmed = (code || '').trim();
+  if (trimmed) map[id] = trimmed;
+  else delete map[id];
+  await Settings.set(EMP_CODES_KEY, JSON.stringify(map));
 }
 
 const PROGRESS_SELECT = `
@@ -257,12 +303,14 @@ export const Employees = {
     return rows.map((e) => ({ ...e, ...normalizeProgress(e) }));
   },
   get(id) {
-    return run(
+    const row = run(
       `SELECT e.*, u.full_name AS manager_name
        FROM employees e LEFT JOIN users u ON u.id = e.manager_id
        WHERE e.id = ?`,
       [id]
     )[0] ?? null;
+    if (row) row.employee_code = readEmployeeCodes()[row.id] ?? '';
+    return row;
   },
   progress(id) {
     const row = run(`SELECT ${PROGRESS_SELECT} FROM tasks t WHERE t.employee_id = ?`, [id])[0] ?? {};
@@ -281,7 +329,7 @@ export const Employees = {
       ]
     );
     const id = res.lastInsertId;
-    if (data.employee_code) await setEmployeeCodeSafe(id, data.employee_code);
+    if (data.employee_code) await writeEmployeeCode(id, data.employee_code);
     if (buildOnboarding) await seedTasksForEmployee(id, 'onboarding');
     await reloadMirror();
     return id;
@@ -307,7 +355,7 @@ export const Employees = {
         data.manager_id || null, data.status || 'onboarding', data.notes || null, id,
       ]
     );
-    if (data.employee_code !== undefined) await setEmployeeCodeSafe(id, data.employee_code);
+    if (data.employee_code !== undefined) await writeEmployeeCode(id, data.employee_code);
     await reloadMirror();
   },
   async setStatus(id, status) {
@@ -317,6 +365,7 @@ export const Employees = {
   async remove(id) {
     await apiExec('DELETE FROM tasks WHERE employee_id = ?', [id]);
     await apiExec('DELETE FROM employees WHERE id = ?', [id]);
+    await writeEmployeeCode(id, '');
     await reloadMirror();
   },
 };
